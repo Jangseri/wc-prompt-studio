@@ -95,14 +95,14 @@ function DbStatusPill() {
   );
 }
 
-function CrossNavLink({ mode }: { mode: "to-studio" | "to-legacy" }) {
-  if (mode === "to-studio") {
+function CrossNavLink({ mode }: { mode: "to-legacy" | "to-main" }) {
+  if (mode === "to-legacy") {
     return (
       <Link
-        href="/studio"
+        href="/legacy"
         className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-smooth hover:border-primary/50 hover:text-foreground"
       >
-        New Studio
+        Legacy UI
         <ArrowRight className="h-3.5 w-3.5" />
       </Link>
     );
@@ -113,7 +113,7 @@ function CrossNavLink({ mode }: { mode: "to-studio" | "to-legacy" }) {
       className="flex items-center gap-1.5 rounded-lg border border-border/60 px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-smooth hover:border-primary/50 hover:text-foreground"
     >
       <ArrowLeft className="h-3.5 w-3.5" />
-      Legacy UI
+      기본 UI
     </Link>
   );
 }
@@ -122,7 +122,7 @@ function StudioHeader() {
   return (
     <header className="glass sticky top-0 z-50 border-b border-border/50">
       <div className="flex items-center justify-between px-6 h-[54px]">
-        <Logo tagline="New" />
+        <Logo />
         <div className="flex items-center gap-3">
           <CrossNavLink mode="to-legacy" />
           <DbStatusPill />
@@ -146,7 +146,7 @@ function LegacyHeader() {
   return (
     <header className="glass sticky top-0 z-50 border-b border-border/50">
       <div className="flex items-center justify-between px-6 h-[54px]">
-        <Logo />
+        <Logo tagline="Legacy" />
         <nav className="flex items-center gap-1">
           {mainTabs.map((tab) => (
             <button
@@ -165,7 +165,7 @@ function LegacyHeader() {
           ))}
         </nav>
         <div className="flex items-center gap-3">
-          <CrossNavLink mode="to-studio" />
+          <CrossNavLink mode="to-main" />
           <DbStatusPill />
         </div>
       </div>
@@ -216,6 +216,6 @@ function LegacyHeader() {
 
 export default function Header() {
   const pathname = usePathname();
-  const isStudio = pathname?.startsWith("/studio") ?? false;
-  return isStudio ? <StudioHeader /> : <LegacyHeader />;
+  const isLegacy = pathname?.startsWith("/legacy") ?? false;
+  return isLegacy ? <LegacyHeader /> : <StudioHeader />;
 }
