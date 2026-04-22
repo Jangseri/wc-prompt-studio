@@ -22,12 +22,17 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npx next dev -p ${PORT}`,
+    // --webpack opts out of Turbopack, which has been crashing on
+    // Windows with stale next-dev worker processes in this repo.
+    command: `npx next dev --webpack -p ${PORT}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 180_000,
     env: {
       NODE_ENV: 'test',
+      // Replace the real OpenAI client with a deterministic stub so
+      // /api/generate returns known output without calling the API.
+      OPENAI_MOCK: '1',
     },
   },
 })
