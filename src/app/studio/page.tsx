@@ -1,5 +1,6 @@
 import Header from "@/components/layout/header";
 import { WorkspaceShell } from "@/components/workspace/workspace-shell";
+import { WorkflowPanel } from "@/components/workspace/workflow-panel";
 
 export default function StudioPage() {
   return (
@@ -7,7 +8,7 @@ export default function StudioPage() {
       <Header />
       <WorkspaceShell
         sidebar={<SidebarPlaceholder />}
-        workflow={<WorkflowPlaceholder />}
+        workflow={<WorkflowPanel />}
         preview={<PreviewPlaceholder />}
       />
     </div>
@@ -29,43 +30,6 @@ function SidebarPlaceholder() {
         회사별로 적용된 프롬프트 목록이 여기에 표시됩니다. 사이드바는 §8 step 7에서
         붙습니다.
       </p>
-    </div>
-  );
-}
-
-function WorkflowPlaceholder() {
-  const steps = [
-    { n: 1, title: "Setup", hint: "company_seq / ai_staff_seq" },
-    { n: 2, title: "Source", hint: "파일 업로드 · 채널 · 업종" },
-    { n: 3, title: "Analysis", hint: "업로드 결과 확인 후 초안 생성" },
-    { n: 4, title: "Regions", hint: "8영역 편집 (기존 region-grid 재사용)" },
-    { n: 5, title: "Apply", hint: "DB 저장 (트랜잭션 · 형제 3개)" },
-  ];
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-lg font-semibold tracking-tight">Workflow</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          통합 워크스페이스 스켈레톤 · 실제 스텝 UI는 §8 step 6부터 채워집니다.
-        </p>
-      </div>
-      <ol className="space-y-2">
-        {steps.map((s) => (
-          <li
-            key={s.n}
-            className="flex items-start gap-3 rounded-lg border border-border/50 p-3"
-          >
-            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-              {s.n}
-            </span>
-            <div>
-              <p className="text-sm font-medium">{s.title}</p>
-              <p className="text-xs text-muted-foreground">{s.hint}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
     </div>
   );
 }

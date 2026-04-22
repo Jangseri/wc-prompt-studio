@@ -58,6 +58,8 @@ interface StructuringStore {
     id: K,
     updater: (current: StructuringPrompt[K]) => StructuringPrompt[K]
   ) => void;
+  /** Replace the entire prompt payload (used when /api/generate mode=regions returns a draft). */
+  setAll: (prompt: StructuringPrompt) => void;
   toggleRegion: (id: RegionId) => void;
   expandAll: () => void;
   collapseAll: () => void;
@@ -120,6 +122,21 @@ export const useStructuringStore = create<StructuringStore>((set, get) => ({
     set((state) => ({
       prompt: { ...state.prompt, [id]: updater(state.prompt[id]) },
     })),
+
+  setAll: (prompt) =>
+    set({
+      prompt,
+      expandedRegions: new Set<RegionId>([
+        "role",
+        "persona",
+        "companyInfo",
+        "answerScope",
+        "branching",
+        "toolCalling",
+        "system",
+        "conversation",
+      ]),
+    }),
 
   toggleRegion: (id) =>
     set((state) => {
