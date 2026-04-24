@@ -100,8 +100,16 @@ export async function PUT(
       }
     }
 
+    // Use the `{ sql, values }` object form (mysql2's QueryOptions
+    // overload) — the positional `execute(sql, values)` overload
+    // fails to infer types here because `setValues` is unknown[] and
+    // TypeScript can't match it against ExecuteValues. The object
+    // form is already used in `../route.ts` for the same reason.
     const sql = `UPDATE cstm_prmt_info SET ${setClauses.join(', ')}, updt_dt = NOW() WHERE cstm_id = ?`
-    const [result] = await pool.execute(sql, [...setValues, id])
+    const [result] = await pool.execute({
+      sql,
+      values: [...setValues, id],
+    })
 
     const { affectedRows } = result as { affectedRows: number }
     if (affectedRows === 0) {

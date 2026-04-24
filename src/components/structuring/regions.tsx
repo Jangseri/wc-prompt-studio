@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { nanoid } from "nanoid";
 import { toast } from "sonner";
-import { Plus, Trash2, ChevronUp, ChevronDown, Maximize2, Save, X } from "lucide-react";
+import { Plus, Trash2, ChevronUp, ChevronDown, Maximize2, Save, X, Lock, Unlock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStructuringStore } from "@/stores/structuring-store";
 import type {
@@ -261,9 +261,10 @@ function BranchingStepsEditor({
                 placeholder={
                   '→ 고객의 문의 내용에 따라 부서를 식별합니다.\n"저희 병원에 방문하신 적이 있나요?"\n\nIF <부서 = "closed">:\n\t→ 재연락 안내\n\t"현재는 OOO의 업무 시간이 아닙니다..."'
                 }
-                rows={6}
+                rows={2}
                 mono
                 tabIndent
+                autoResize
               />
             </div>
           );
@@ -559,17 +560,47 @@ export function ToolCallingSection({ value }: { value: ToolCallingRegion }) {
 
 export function SystemSection({ value }: { value: SystemRegion }) {
   const update = useStructuringStore((s) => s.updateRegion);
+  // STT/TTS is server-provided standard rules — edits should be
+  // intentional. Locked by default; user clicks "수정" to unlock the
+  // textarea. Local state so closing/reopening the card re-locks.
+  const [unlocked, setUnlocked] = useState(false);
   return (
     <Field
       label="STT / TTS 규칙"
       hint="음성 인식/합성 관련"
       className="flex h-full flex-col"
+      action={
+        <button
+          type="button"
+          onClick={() => setUnlocked((v) => !v)}
+          title={unlocked ? "잠금" : "수정 허용"}
+          className={cn(
+            "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] transition-smooth",
+            unlocked
+              ? "border-primary/40 bg-primary/10 text-primary"
+              : "border-border/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+          )}
+        >
+          {unlocked ? (
+            <Unlock className="h-3 w-3" />
+          ) : (
+            <Lock className="h-3 w-3" />
+          )}
+          {unlocked ? "잠금" : "수정"}
+        </button>
+      }
     >
+      {!unlocked && (
+        <div className="shrink-0 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-500">
+          ⚠️ 이 영역은 기본 제공되는 STT/TTS 규칙입니다. 수정 시 주의하세요.
+        </div>
+      )}
       <TextArea
         value={value.sttTts}
         onChange={(v) => update("system", () => ({ sttTts: v }))}
         placeholder="예: 숫자는 '일이삼'이 아닌 '123'으로 인식, 전화번호는 한 자리씩 발화"
         fill
+        disabled={!unlocked}
       />
     </Field>
   );

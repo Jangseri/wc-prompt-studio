@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Maximize2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// useLayoutEffect warns during SSR; fall back to useEffect on the
+// server where layout measurement isn't meaningful anyway.
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 interface FieldProps {
   label: string;
@@ -70,6 +75,10 @@ interface TextAreaProps {
   expandable?: boolean;
   /** Header label shown in the expand modal. Falls back to "확장 편집". */
   expandLabel?: string;
+  /** When true, the textarea's height tracks its content (no internal
+   *  scroll). `rows` still acts as the minimum visible size. Mutually
+   *  exclusive with `fill`; do not combine. */
+  autoResize?: boolean;
 }
 
 function textareaTabIndentHandler(
@@ -101,11 +110,36 @@ export function TextArea({
   tabIndent,
   expandable,
   expandLabel,
+  autoResize,
 }: TextAreaProps) {
   const [modalOpen, setModalOpen] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow: sync height to scrollHeight so the field tracks content.
+  //
+  // When `value` is empty we skip the scrollHeight measurement entirely
+  // and let the `rows` attribute drive the natural height. Some
+  // browsers (Chrome in particular) include a multi-line `placeholder`
+  // in the textarea's scrollHeight, which would otherwise push empty
+  // fields well above the `rows` minimum.
+  //
+  // For non-empty content, `void el.offsetHeight` forces a synchronous
+  // layout recalc between clearing the inline height and reading
+  // scrollHeight — without it, browsers can keep scrollHeight anchored
+  // to the previous explicit height and the field never shrinks back.
+  useIsomorphicLayoutEffect(() => {
+    if (!autoResize) return;
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    if (value.length === 0) return;
+    void el.offsetHeight;
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value, autoResize]);
 
   const textareaEl = (
     <textarea
+      ref={textareaRef}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={tabIndent ? textareaTabIndentHandler(value, onChange) : undefined}
@@ -113,10 +147,15 @@ export function TextArea({
       rows={fill ? undefined : rows}
       disabled={disabled}
       className={cn(
-        "w-full rounded-md border border-border bg-background px-3 py-2 text-xs focus:border-primary focus:outline-none resize-none",
+        "w-full rounded-md border border-border px-3 py-2 text-xs focus:border-primary focus:outline-none resize-none",
+        // Text stays crisp; a muted fill + not-allowed cursor carries
+        // the read-only signal on its own.
+        disabled
+          ? "cursor-not-allowed bg-muted text-foreground"
+          : "bg-background",
         mono && "font-mono leading-relaxed",
-        disabled && "cursor-not-allowed opacity-60",
         fill && "h-full min-h-0 flex-1",
+        autoResize && "overflow-hidden",
         expandable && "pr-9"
       )}
       spellCheck={!mono}

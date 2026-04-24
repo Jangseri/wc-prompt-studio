@@ -28,9 +28,9 @@ const REGION_HEIGHTS: Record<RegionId, string> = {
   system: "h-[300px]",
   conversation: "h-[240px]",
   toolCalling: "h-[240px]",
-  branching: "h-[300px]",
+  branching: "h-[400px]",
   custom: "h-[300px]",
-  answerScope: "h-[240px]",
+  answerScope: "h-[300px]",
 };
 
 function RegionBody({ id }: { id: RegionId }) {

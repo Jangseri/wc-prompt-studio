@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronsDown, ChevronsUp, RotateCcw } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useStructuringStore } from "@/stores/structuring-store";
 import { REGION_ORDER } from "@/types/structuring";
 import { RegionCard } from "./region-card";
@@ -44,7 +45,14 @@ export function RegionGrid() {
 
       <div className="grid grid-cols-1 items-start gap-3 xl:grid-cols-2">
         {REGION_ORDER.map((id) => (
-          <RegionCard key={id} id={id} />
+          <div
+            key={id}
+            // Branching spans the full row so the bottom line naturally
+            // becomes [custom] [answerScope] side by side.
+            className={cn(id === "branching" && "xl:col-span-2")}
+          >
+            <RegionCard id={id} />
+          </div>
         ))}
       </div>
     </div>
