@@ -54,14 +54,10 @@ function PreviewView({ inModal }: { inModal: boolean }) {
 }
 
 function ChatView() {
-  const initChat = useStructuringStore((s) => s.initChat);
-  const chatMessagesLength = useStructuringStore((s) => s.chatMessages.length);
   const targetLLM = useStructuringStore((s) => s.targetLLM);
   const [showSettings, setShowSettings] = useState(false);
-
-  useEffect(() => {
-    if (chatMessagesLength === 0) initChat();
-  }, [initChat, chatMessagesLength]);
+  // Greeting is rendered virtually by ChatWindow from store state, so
+  // no seeding effect needed here.
 
   return (
     <div className="flex flex-1 min-h-0 flex-col">

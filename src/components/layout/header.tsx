@@ -16,6 +16,7 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const mainTabs: { id: MainTab; label: string; icon: React.ReactNode }[] = [
   { id: "auto", label: "자동 생성", icon: <Sparkles className="h-4 w-4" /> },
@@ -126,6 +127,7 @@ function StudioHeader() {
         <div className="flex items-center gap-3">
           <CrossNavLink mode="to-legacy" />
           <DbStatusPill />
+          <ThemeToggle />
         </div>
       </div>
     </header>
@@ -167,6 +169,7 @@ function LegacyHeader() {
         <div className="flex items-center gap-3">
           <CrossNavLink mode="to-main" />
           <DbStatusPill />
+          <ThemeToggle />
         </div>
       </div>
 

@@ -27,8 +27,16 @@ export async function POST(request: Request) {
     )
   }
 
-  // 경로 탐색 방지
-  if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+  // 경로 탐색 방지: 구분자만 차단한다.
+  // orchestrator가 파일명에 `..`를 포함하는 명명 규칙을 쓰므로
+  // (예: "회사소개.20260210165138..txt") `..` 단독 금지는 과도하다.
+  // 실제 path traversal은 경로 구분자가 있어야 가능.
+  if (
+    fileName.includes('/') ||
+    fileName.includes('\\') ||
+    fileName === '..' ||
+    fileName === '.'
+  ) {
     return NextResponse.json(
       { success: false, error: '유효하지 않은 파일명입니다' } satisfies ApiResponse<null>,
       { status: 400 }

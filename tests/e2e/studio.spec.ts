@@ -40,7 +40,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe("Unified workspace / (default after swap)", () => {
-  test("renders the three-column shell and minimal header", async ({ page }) => {
+  test("renders the three-column shell with idle welcome in the center", async ({
+    page,
+  }) => {
     const res = await page.goto("/");
     expect(res?.status(), "HTTP status for /").toBeLessThan(500);
 
@@ -48,10 +50,12 @@ test.describe("Unified workspace / (default after swap)", () => {
 
     // LEFT: Companies sidebar
     await expect(page.getByRole("heading", { name: /Companies/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /New workflow/i })).toBeVisible();
+    // "New workflow" button exists in the sidebar
+    await expect(page.getByRole("button", { name: /New workflow/i }).first()).toBeVisible();
 
-    // CENTER: Workflow
-    await expect(page.getByRole("heading", { name: "Workflow" })).toBeVisible();
+    // CENTER: idle welcome (no Workflow yet)
+    await expect(page.getByRole("heading", { name: /WC Prompt Studio/i })).toBeVisible();
+    await expect(page.getByText(/새 워크플로를 시작해/)).toBeVisible();
 
     // RIGHT: Preview / Chat / KB tabs
     await expect(page.getByRole("button", { name: /^Preview$/ })).toBeVisible();
@@ -66,15 +70,22 @@ test.describe("Unified workspace / (default after swap)", () => {
     await expect(page.getByRole("button", { name: /자동 생성/ })).toBeVisible();
   });
 
-  test("setup step gates advancement until both identifiers are filled", async ({
+  test("New workflow opens the 5-step wizard, setup gates advancement", async ({
     page,
   }) => {
     await page.goto("/");
+
+    // Click "New workflow" in the idle panel to enter workflow mode
+    await page
+      .getByRole("button", { name: /New workflow/i })
+      .first()
+      .click();
 
     const companyInput = page.getByPlaceholder(/__TEST__hospital/);
     const staffInput = page.getByPlaceholder("예: 1");
     const nextBtn = page.getByRole("button", { name: /다음: 소스/ });
 
+    await expect(companyInput).toBeVisible();
     await expect(nextBtn).toBeDisabled();
 
     await companyInput.fill("__TEST__e2e");
@@ -93,15 +104,15 @@ test.describe("Unified workspace / (default after swap)", () => {
   }) => {
     await page.goto("/");
     await expect(
-      page.getByText(/8영역을 작성하면 여기에 실시간 조립된 프롬프트가 보입니다/)
+      page.getByText(/프롬프트 구성이 채워지면 여기에 실시간 미리보기가 보입니다/)
     ).toBeVisible();
   });
 
-  test("KB tab prompts for company_seq when none is set", async ({ page }) => {
+  test("KB tab prompts to pick a company when none is set", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: /^KB$/ }).click();
     await expect(
-      page.getByText(/Setup 스텝에서 company_seq를 입력하면/)
+      page.getByText(/선택된 회사가 없습니다/)
     ).toBeVisible();
   });
 
@@ -116,7 +127,7 @@ test.describe("Unified workspace / (default after swap)", () => {
     await expect(page.getByRole("button", { name: /__TEST__demo/ })).toBeVisible();
 
     await page.getByRole("button", { name: /__TEST__demo/ }).click();
-    await expect(page.getByText("PD2000")).toBeVisible();
-    await expect(page.getByText("PA4000")).toBeVisible();
+    // Expanded: staff row appears
+    await expect(page.getByRole("button", { name: /staff\s+1\b/ })).toBeVisible();
   });
 });

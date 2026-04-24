@@ -1,7 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Copy, Check, FileText, Loader2, MessageSquare, Database } from "lucide-react";
+import { createPortal } from "react-dom";
+import {
+  Copy,
+  Check,
+  FileText,
+  Loader2,
+  MessageSquare,
+  Database,
+  Maximize2,
+  X,
+  RotateCcw,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useStructuringStore } from "@/stores/structuring-store";
@@ -11,7 +22,10 @@ import { ChatWindow } from "@/components/structuring/chat/chat-window";
 import { ChatInput } from "@/components/structuring/chat/chat-input";
 import { KBViewer } from "@/components/editor/KBViewer";
 import { fetchKBList } from "@/lib/kb-api";
+import { TARGET_LLM_META, type TargetLLM } from "@/types/structuring";
 import type { KBItem } from "@/types/editor";
+
+const LLM_TARGETS: TargetLLM[] = ["gpt", "claude", "gemini"];
 
 type RightTab = "preview" | "chat" | "kb";
 
@@ -22,12 +36,48 @@ const TABS: { id: RightTab; label: string; icon: typeof FileText }[] = [
 ];
 
 export function PreviewChatPanel() {
+  const mode = useWorkspaceStore((s) => s.mode);
   const [active, setActive] = useState<RightTab>("preview");
+
+  // Tabs visible in the tabbed layout. Workflow mode hides KB
+  // (the draft doesn't need the reference library); manage mode is
+  // handled separately below (KB-only, no tab bar).
+  const visibleTabs = useMemo(
+    () =>
+      mode === "workflow" ? TABS.filter((t) => t.id !== "kb") : TABS,
+    [mode]
+  );
+
+  // If the currently-active tab got filtered out by a mode change,
+  // snap back to the first available one.
+  useEffect(() => {
+    if (!visibleTabs.some((t) => t.id === active)) {
+      setActive(visibleTabs[0]?.id ?? "preview");
+    }
+  }, [visibleTabs, active]);
+
+  // In manage mode the user is editing existing DB rows directly — the
+  // Preview/Chat tabs reflect the regions editor state (empty here) and
+  // would just be confusing, so we show only KB (company-contextual
+  // reference files) with a static section header in place of the tab bar.
+  if (mode === "manage") {
+    return (
+      <div className="flex h-full flex-col gap-3 min-h-0">
+        <div className="flex items-center gap-1.5 rounded-md border border-border/50 bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+          <Database className="h-3.5 w-3.5" />
+          Knowledge Base
+        </div>
+        <div className="flex-1 min-h-0">
+          <KBTab />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col gap-3 min-h-0">
       <div className="flex items-center gap-1 rounded-md border border-border/50 p-1">
-        {TABS.map((t) => {
+        {visibleTabs.map((t) => {
           const Icon = t.icon;
           const isActive = active === t.id;
           return (
@@ -61,6 +111,7 @@ export function PreviewChatPanel() {
 function PreviewTab() {
   const prompt = useStructuringStore((s) => s.prompt);
   const targetLLM = useStructuringStore((s) => s.targetLLM);
+  const setTargetLLM = useStructuringStore((s) => s.setTargetLLM);
   const [copied, setCopied] = useState(false);
 
   const assembled = useMemo(() => assemblePrompt(prompt, targetLLM), [prompt, targetLLM]);
@@ -79,28 +130,51 @@ function PreviewTab() {
   }, [assembled, isEmpty]);
 
   return (
-    <div className="flex h-full flex-col min-h-0">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground">
-          조립된 프롬프트 · target {targetLLM}
-          {!isEmpty && ` · ${assembled.length.toLocaleString()}자`}
+    <div className="flex h-full flex-col min-h-0 gap-2">
+      <div className="flex items-center gap-2">
+        <span className="shrink-0 text-[11px] text-muted-foreground">Target LLM:</span>
+        <div className="flex gap-0.5 rounded-md bg-muted p-0.5">
+          {LLM_TARGETS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTargetLLM(t)}
+              className={cn(
+                "rounded px-2 py-0.5 text-[10px] font-medium transition-smooth",
+                targetLLM === t
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {TARGET_LLM_META[t].label}
+            </button>
+          ))}
+        </div>
+        <span className="truncate text-[10px] text-muted-foreground">
+          {TARGET_LLM_META[targetLLM].formatName}
         </span>
         <button
           type="button"
           onClick={handleCopy}
           disabled={isEmpty}
-          className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground hover:border-primary/40 hover:text-foreground disabled:opacity-50"
+          className="ml-auto flex shrink-0 items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground hover:border-primary/40 hover:text-foreground disabled:opacity-50"
         >
           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
           {copied ? "복사됨" : "복사"}
         </button>
       </div>
 
+      {!isEmpty && (
+        <span className="text-[10px] text-muted-foreground">
+          {assembled.length.toLocaleString()}자
+        </span>
+      )}
+
       <div className="flex-1 min-h-0 overflow-auto rounded-md border border-border/60 bg-card/40 p-3">
         {isEmpty ? (
           <div className="flex h-full items-center justify-center text-center">
             <p className="max-w-xs text-xs text-muted-foreground">
-              8영역을 작성하면 여기에 실시간 조립된 프롬프트가 보입니다.
+              프롬프트 구성이 채워지면 여기에 실시간 미리보기가 보입니다.
             </p>
           </div>
         ) : (
@@ -114,9 +188,61 @@ function PreviewTab() {
 }
 
 function ChatTab() {
+  const prompt = useStructuringStore((s) => s.prompt);
+  const targetLLM = useStructuringStore((s) => s.targetLLM);
+  const chatMessages = useStructuringStore((s) => s.chatMessages);
+  const clearChat = useStructuringStore((s) => s.clearChat);
+
+  // Chat is only meaningful once the 8-region prompt has content.
+  // Until then, show a disabled guidance message. Using the same
+  // isEmpty signal as PreviewTab keeps the two views consistent.
+  // The greeting is rendered virtually by ChatWindow directly from the
+  // store, so no seeding effect is needed here.
+  const isPromptEmpty = useMemo(
+    () => assemblePrompt(prompt, targetLLM).trim().length === 0,
+    [prompt, targetLLM]
+  );
+
+  const hasMessages = chatMessages.filter((m) => m.id !== "greeting").length > 0;
+
+  if (isPromptEmpty) {
+    return (
+      <div className="flex h-full items-center justify-center rounded-md border border-dashed border-border/60 p-6">
+        <div className="max-w-xs text-center space-y-1.5">
+          <p className="text-sm font-medium text-foreground/80">
+            대화 테스트 준비 중
+          </p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            먼저 중앙의 워크플로우에서 구성을 채우면
+            <br />
+            여기서 AI와 대화를 테스트할 수 있습니다.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col min-h-0 rounded-md border border-border/60 bg-card/40">
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex shrink-0 items-center justify-end border-b border-border/40 px-2 py-1.5">
+        <button
+          type="button"
+          onClick={clearChat}
+          disabled={!hasMessages}
+          title="사용자 대화만 삭제 (인사말은 유지됨)"
+          className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-muted-foreground transition-smooth hover:bg-destructive/10 hover:text-destructive disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground disabled:cursor-not-allowed"
+        >
+          <RotateCcw className="h-3 w-3" />
+          초기화
+        </button>
+      </div>
+      {targetLLM !== "gpt" && (
+        <div className="border-b border-warning/30 bg-warning/5 px-3 py-1.5 text-[10px] text-warning">
+          ℹ️ Preview는 <strong>{TARGET_LLM_META[targetLLM].label}</strong> 포맷으로 조립되지만,
+          실제 대화 응답은 GPT(gpt-4o)로 생성
+        </div>
+      )}
+      <div className="flex min-h-0 flex-1 flex-col">
         <ChatWindow />
       </div>
       <div className="border-t border-border/40 p-2">
@@ -126,12 +252,94 @@ function ChatTab() {
   );
 }
 
+function KBExpandModal({
+  item,
+  onClose,
+}: {
+  item: KBItem;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    // Prevent background scroll while modal is open
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
+
+  // SSR guard: react-dom's createPortal requires document.
+  if (typeof document === "undefined") return null;
+
+  // Portal to document.body so the modal's `position: fixed` is always
+  // relative to the viewport. Previously the modal was nested inside
+  // the right aside (which has sticky positioning + its own scroll
+  // context), and that ancestor was shifting the modal's containing
+  // block so only its top sliver appeared visible.
+  const modal = (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`KB file: ${item.file_name}`}
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-md"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        style={{
+          width: "min(72rem, calc(100vw - 2rem))",
+          height: "calc(100vh - 2rem)",
+        }}
+        className="flex flex-col overflow-hidden rounded-2xl border border-[#27272a] bg-[#18181b] shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#27272a] bg-[#1c1c1f] px-5 py-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="rounded bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+              KB
+            </span>
+            <span
+              className="truncate font-mono text-[13px] text-foreground"
+              title={item.file_name}
+            >
+              {item.file_name}
+            </span>
+            <span className="text-[11px] text-muted-foreground">
+              company {item.company_seq}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            title="닫기 (ESC)"
+            aria-label="닫기"
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[#333] bg-transparent px-3 text-xs text-muted-foreground transition-all hover:border-red-500/40 hover:bg-red-600/10 hover:text-red-400"
+          >
+            <X className="h-3.5 w-3.5" />
+            닫기 (ESC)
+          </button>
+        </div>
+        <KBViewer item={item} />
+      </div>
+    </div>
+  );
+
+  return createPortal(modal, document.body);
+}
+
 function KBTab() {
   const companySeq = useWorkspaceStore((s) => s.companySeq);
   const [items, setItems] = useState<KBItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<KBItem | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const load = useCallback(async () => {
     if (!companySeq.trim()) {
@@ -162,7 +370,9 @@ function KBTab() {
     return (
       <div className="flex h-full items-center justify-center rounded-md border border-dashed border-border/60 p-4">
         <p className="max-w-xs text-center text-xs text-muted-foreground">
-          Setup 스텝에서 company_seq를 입력하면 해당 회사의 KB 목록이 표시됩니다.
+          선택된 회사가 없습니다.
+          <br />
+          좌측 사이드바에서 회사를 선택해주세요.
         </p>
       </div>
     );
@@ -170,18 +380,40 @@ function KBTab() {
 
   if (selected) {
     return (
-      <div className="flex h-full flex-col min-h-0">
-        <button
-          type="button"
-          onClick={() => setSelected(null)}
-          className="mb-2 self-start rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground hover:border-primary/40"
-        >
-          ← 목록으로
-        </button>
-        <div className="flex-1 min-h-0">
-          <KBViewer item={selected} />
+      <>
+        <div className="flex h-full flex-col min-h-0">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSelected(null);
+                setExpanded(false);
+              }}
+              className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground hover:border-primary/50 hover:text-foreground"
+            >
+              ← 목록으로
+            </button>
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10px] text-muted-foreground hover:border-primary/40 hover:text-foreground"
+              aria-label="전체화면으로 보기"
+            >
+              <Maximize2 className="h-3 w-3" />
+              확장
+            </button>
+          </div>
+          {/*
+           * KBViewer's root uses `flex-1` so it must be a direct child
+           * of a flex container. Wrapping it in a block div collapses
+           * its height and makes the Monaco area render as 0px.
+           */}
+          {!expanded && <KBViewer item={selected} />}
         </div>
-      </div>
+        {expanded && (
+          <KBExpandModal item={selected} onClose={() => setExpanded(false)} />
+        )}
+      </>
     );
   }
 
@@ -189,7 +421,7 @@ function KBTab() {
     <div className="flex h-full flex-col gap-2 min-h-0">
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
         <span>
-          company_seq <span className="font-mono text-foreground/80">{companySeq}</span>
+          company <span className="font-mono text-foreground/80">{companySeq}</span>
         </span>
         <button
           type="button"

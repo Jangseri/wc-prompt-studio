@@ -5,6 +5,8 @@ import type {
   StructuringPrompt,
   TargetLLM,
   KeyValueItem,
+  CustomSectionItem,
+  BranchingStep,
 } from "@/types/structuring";
 import type { ChatMessage, ChatSettings } from "@/types/chat";
 
@@ -18,7 +20,7 @@ const emptyPrompt = (): StructuringPrompt => ({
     rag: { enabled: false, performanceNotes: "" },
     specifics: { type: "keyValue", keyValueItems: [], sentence: "" },
   },
-  branching: { description: "", pseudoCode: "" },
+  branching: { topLevelRules: [], steps: [] },
   toolCalling: { mcp: "", api: "", agent: "", dataQuery: "" },
   system: { sttTts: "" },
   conversation: {
@@ -31,7 +33,37 @@ const emptyPrompt = (): StructuringPrompt => ({
     },
     customNotes: "",
   },
+  custom: { items: [] },
 });
+
+// Regions that auto-expand after `setAll` (i.e. when a draft is generated).
+// toolCalling is intentionally excluded — the feature isn't ready yet and
+// the card starts collapsed so users aren't tempted to use it.
+// Order mirrors REGION_ORDER.
+const DEFAULT_EXPANDED_REGIONS: RegionId[] = [
+  "role",
+  "persona",
+  "companyInfo",
+  "system",
+  "conversation",
+  "branching",
+  "custom",
+  "answerScope",
+];
+
+// Regions expanded by the "모두 펼치기" action — includes everything so
+// users can still inspect the disabled toolCalling card if they want.
+const ALL_REGIONS: RegionId[] = [
+  "role",
+  "persona",
+  "companyInfo",
+  "system",
+  "conversation",
+  "toolCalling",
+  "branching",
+  "custom",
+  "answerScope",
+];
 
 interface StructuringStore {
   prompt: StructuringPrompt;
@@ -49,7 +81,6 @@ interface StructuringStore {
   addChatMessage: (message: ChatMessage) => void;
   updateLastAssistantMessage: (content: string) => void;
   clearChat: () => void;
-  initChat: () => void;
   setChatSettings: (patch: Partial<ChatSettings>) => void;
   setIsChatLoading: (v: boolean) => void;
 
@@ -68,6 +99,27 @@ interface StructuringStore {
   addKeyValueItem: () => void;
   updateKeyValueItem: (id: string, patch: Partial<Omit<KeyValueItem, "id">>) => void;
   removeKeyValueItem: (id: string) => void;
+
+  addCustomSection: () => void;
+  updateCustomSection: (
+    id: string,
+    patch: Partial<Omit<CustomSectionItem, "id">>
+  ) => void;
+  removeCustomSection: (id: string) => void;
+
+  /* ── Branching: top-level rules ── */
+  addBranchingRule: () => void;
+  updateBranchingRule: (index: number, text: string) => void;
+  removeBranchingRule: (index: number) => void;
+
+  /* ── Branching: ordered steps ── */
+  addBranchingStep: () => void;
+  updateBranchingStep: (
+    id: string,
+    patch: Partial<Omit<BranchingStep, "id">>
+  ) => void;
+  removeBranchingStep: (id: string) => void;
+  moveBranchingStep: (id: string, direction: "up" | "down") => void;
 
   reset: () => void;
 }
@@ -94,26 +146,10 @@ export const useStructuringStore = create<StructuringStore>((set, get) => ({
       }
       return { chatMessages: messages };
     }),
-  clearChat: () => {
-    set({ chatMessages: [] });
-    get().initChat();
-  },
-  initChat: () => {
-    const state = get();
-    if (state.chatMessages.length > 0) return;
-    const greeting = state.prompt.companyInfo.greeting.trim();
-    if (!greeting) return;
-    set({
-      chatMessages: [
-        {
-          id: "greeting",
-          role: "assistant",
-          content: greeting,
-          timestamp: new Date().toISOString(),
-        },
-      ],
-    });
-  },
+  // Only clears real user/assistant messages; the greeting is rendered
+  // virtually in ChatWindow from `prompt.companyInfo.greeting` and stays
+  // visible.
+  clearChat: () => set({ chatMessages: [] }),
   setChatSettings: (patch) =>
     set((state) => ({ chatSettings: { ...state.chatSettings, ...patch } })),
   setIsChatLoading: (v) => set({ isChatLoading: v }),
@@ -126,16 +162,7 @@ export const useStructuringStore = create<StructuringStore>((set, get) => ({
   setAll: (prompt) =>
     set({
       prompt,
-      expandedRegions: new Set<RegionId>([
-        "role",
-        "persona",
-        "companyInfo",
-        "answerScope",
-        "branching",
-        "toolCalling",
-        "system",
-        "conversation",
-      ]),
+      expandedRegions: new Set<RegionId>(DEFAULT_EXPANDED_REGIONS),
     }),
 
   toggleRegion: (id) =>
@@ -148,16 +175,7 @@ export const useStructuringStore = create<StructuringStore>((set, get) => ({
 
   expandAll: () =>
     set(() => ({
-      expandedRegions: new Set<RegionId>([
-        "role",
-        "persona",
-        "companyInfo",
-        "answerScope",
-        "branching",
-        "toolCalling",
-        "system",
-        "conversation",
-      ]),
+      expandedRegions: new Set<RegionId>(ALL_REGIONS),
     })),
 
   collapseAll: () => set({ expandedRegions: new Set<RegionId>() }),
@@ -212,6 +230,134 @@ export const useStructuringStore = create<StructuringStore>((set, get) => ({
         },
       },
     })),
+
+  addCustomSection: () =>
+    set((state) => ({
+      prompt: {
+        ...state.prompt,
+        custom: {
+          items: [
+            ...state.prompt.custom.items,
+            { id: nanoid(), tag: "", content: "" },
+          ],
+        },
+      },
+    })),
+
+  updateCustomSection: (id, patch) =>
+    set((state) => ({
+      prompt: {
+        ...state.prompt,
+        custom: {
+          items: state.prompt.custom.items.map((item) =>
+            item.id === id ? { ...item, ...patch } : item
+          ),
+        },
+      },
+    })),
+
+  removeCustomSection: (id) =>
+    set((state) => ({
+      prompt: {
+        ...state.prompt,
+        custom: {
+          items: state.prompt.custom.items.filter((item) => item.id !== id),
+        },
+      },
+    })),
+
+  addBranchingRule: () =>
+    set((state) => ({
+      prompt: {
+        ...state.prompt,
+        branching: {
+          ...state.prompt.branching,
+          topLevelRules: [...state.prompt.branching.topLevelRules, ""],
+        },
+      },
+    })),
+
+  updateBranchingRule: (index, text) =>
+    set((state) => {
+      const rules = state.prompt.branching.topLevelRules;
+      if (index < 0 || index >= rules.length) return state;
+      const next = rules.slice();
+      next[index] = text;
+      return {
+        prompt: {
+          ...state.prompt,
+          branching: { ...state.prompt.branching, topLevelRules: next },
+        },
+      };
+    }),
+
+  removeBranchingRule: (index) =>
+    set((state) => ({
+      prompt: {
+        ...state.prompt,
+        branching: {
+          ...state.prompt.branching,
+          topLevelRules: state.prompt.branching.topLevelRules.filter(
+            (_, i) => i !== index
+          ),
+        },
+      },
+    })),
+
+  addBranchingStep: () =>
+    set((state) => ({
+      prompt: {
+        ...state.prompt,
+        branching: {
+          ...state.prompt.branching,
+          steps: [
+            ...state.prompt.branching.steps,
+            { id: nanoid(), title: "", body: "" },
+          ],
+        },
+      },
+    })),
+
+  updateBranchingStep: (id, patch) =>
+    set((state) => ({
+      prompt: {
+        ...state.prompt,
+        branching: {
+          ...state.prompt.branching,
+          steps: state.prompt.branching.steps.map((step) =>
+            step.id === id ? { ...step, ...patch } : step
+          ),
+        },
+      },
+    })),
+
+  removeBranchingStep: (id) =>
+    set((state) => ({
+      prompt: {
+        ...state.prompt,
+        branching: {
+          ...state.prompt.branching,
+          steps: state.prompt.branching.steps.filter((step) => step.id !== id),
+        },
+      },
+    })),
+
+  moveBranchingStep: (id, direction) =>
+    set((state) => {
+      const steps = state.prompt.branching.steps;
+      const idx = steps.findIndex((s) => s.id === id);
+      if (idx < 0) return state;
+      const target = direction === "up" ? idx - 1 : idx + 1;
+      if (target < 0 || target >= steps.length) return state;
+      const next = steps.slice();
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return {
+        prompt: {
+          ...state.prompt,
+          branching: { ...state.prompt.branching, steps: next },
+        },
+      };
+    }),
 
   reset: () =>
     set({

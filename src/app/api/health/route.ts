@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getPool } from '@/lib/db'
+import { logger } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +12,7 @@ export async function GET() {
   } catch (err) {
     let reason = '알 수 없는 오류'
     const msg = err instanceof Error ? err.message : String(err)
-    console.error('[Health Check Error]', msg)
+    logger.error('[Health Check Error] ' + msg, err)
     if (msg.includes('ECONNREFUSED')) reason = '연결 거부 (VPN 확인)'
     else if (msg.includes('ETIMEDOUT') || msg.includes('timeout')) reason = '연결 시간 초과'
     else if (msg.includes('ACCESS_DENIED') || msg.includes('ER_ACCESS_DENIED')) reason = 'DB 인증 실패'

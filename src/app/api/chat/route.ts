@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { openai } from "@/lib/openai";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
-    console.error("Chat error:", err);
+    logger.error("[chat] streaming failed", err);
     return new Response("Chat failed", { status: 500 });
   }
 }

@@ -1,6 +1,6 @@
 import type { PoolConnection } from "mysql2/promise";
 import {
-  CHANNEL_CODES,
+  resolveChannelCode,
   SIBLING_PRMT_CDS,
   type Channel,
   type SiblingPrmtCd,
@@ -8,19 +8,23 @@ import {
 import { SIBLING_DEFAULTS } from "./sibling-defaults";
 
 /**
- * Applies a unified-workspace prompt to cstm_prmt_info atomically.
+ * Applies a unified-workspace prompt to cstm_prmt_info atomically, under
+ * a strict "create-new-only" policy:
  *
- *  1. Main (PD2000 callbot / PD0000 chatbot) — upsert with
- *     ON DUPLICATE KEY UPDATE so re-applying overwrites prompt + json_schema
- *     and flips status to 'Y' + updt_dt to NOW().
- *  2. Siblings (PA4000 / PA1000 / PC1000) — INSERT IGNORE so existing tuning
- *     is preserved.
+ *   - Pre-checks that NONE of the 4 target rows (main + 3 siblings) exist
+ *     for the given (company_seq, ai_staff_seq, svc_cd, prmt_cd) keys.
+ *   - If any exist, throws `ExistingPromptsError` and rolls back. No
+ *     upsert, no update, no partial writes.
+ *   - Otherwise, inserts all 4 rows fresh and commits.
  *
- * Wraps everything in BEGIN / COMMIT. Any thrown error triggers rollback.
+ * Editing an already-applied (company, staff) pair must go through the
+ * dedicated management flow that targets individual cstm_id records.
  *
- * The connection is taken as an argument so tests can mock it and the caller
- * controls connection lifecycle (pool.getConnection + release outside this
- * function).
+ * Race condition safety: two concurrent calls can both pass the pre-check
+ * and attempt INSERTs. The UNIQUE constraint on
+ * (company_seq, ai_staff_seq, svc_cd, prmt_cd) makes the second one
+ * fail with ER_DUP_ENTRY; we catch that and convert it to
+ * `ExistingPromptsError` so callers see a uniform result.
  *
  * See docs/unified-workspace-plan.md §6.2, §6B.1, §6B.2.
  */
@@ -29,11 +33,17 @@ export interface ApplyPromptInput {
   companySeq: string;
   aiStaffSeq: string;
   channel: Channel;
+  /**
+   * Industry string from the Source step. Certain industries
+   * (currently "병원" on callbot) map to a different svc_cd — see
+   * INDUSTRY_SVC_CD_OVERRIDES in prompt-codes.ts.
+   */
+  industry: string;
   /** Already-serialized main prompt string. */
   prompt: string;
   /**
    * Explicit override for the main record's json_schema column. If omitted,
-   * CHANNEL_CODES[channel].json_schema is used (null for callbot, the
+   * the resolved ChannelCode.json_schema is used (null for callbot, the
    * double_response_list default for chatbot).
    */
   jsonSchemaOverride?: string | null;
@@ -41,9 +51,13 @@ export interface ApplyPromptInput {
 
 export interface ApplySiblingResult {
   prmt_cd: SiblingPrmtCd;
-  cstm_id: number | null;
-  /** True if this INSERT IGNORE actually created a row this call. */
-  created: boolean;
+  cstm_id: number;
+  /**
+   * Always true under the create-new-only policy — kept for backward
+   * compatibility with response consumers that previously distinguished
+   * created vs. skipped siblings.
+   */
+  created: true;
 }
 
 export interface ApplyPromptResult {
@@ -55,6 +69,17 @@ export interface ApplyPromptResult {
   siblings: ApplySiblingResult[];
 }
 
+/** Thrown when the pre-check finds existing rows, or when a concurrent
+ *  insert races past the pre-check and hits the UNIQUE constraint. */
+export class ExistingPromptsError extends Error {
+  constructor(public readonly existingPrmtCds: string[]) {
+    const list =
+      existingPrmtCds.length > 0 ? existingPrmtCds.join(", ") : "(동시 저장 감지)";
+    super(`기존 프롬프트가 이미 존재합니다: ${list}`);
+    this.name = "ExistingPromptsError";
+  }
+}
+
 interface OkPacket {
   insertId: number;
   affectedRows: number;
@@ -64,19 +89,27 @@ interface MainLookupRow {
   cstm_id: number;
 }
 
-const INSERT_MAIN_SQL = `
-  INSERT INTO cstm_prmt_info
-    (company_seq, ai_staff_seq, svc_cd, prmt_cd, status, prompt, json_schema, rgst_dt, updt_dt)
-  VALUES (?, ?, ?, ?, 'Y', ?, ?, NOW(), NOW())
-  ON DUPLICATE KEY UPDATE
-    prompt = VALUES(prompt),
-    json_schema = VALUES(json_schema),
-    status = 'Y',
-    updt_dt = NOW()
+interface ExistingPrmtRow {
+  prmt_cd: string;
+}
+
+function isDuplicateKeyError(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const code = (err as { code?: string }).code;
+  const errno = (err as { errno?: number }).errno;
+  return code === "ER_DUP_ENTRY" || errno === 1062;
+}
+
+const CHECK_EXISTING_SQL = `
+  SELECT prmt_cd FROM cstm_prmt_info
+  WHERE company_seq = ?
+    AND ai_staff_seq = ?
+    AND svc_cd = ?
+    AND prmt_cd IN (?, ?, ?, ?)
 `;
 
-const INSERT_SIBLING_SQL = `
-  INSERT IGNORE INTO cstm_prmt_info
+const INSERT_SQL = `
+  INSERT INTO cstm_prmt_info
     (company_seq, ai_staff_seq, svc_cd, prmt_cd, status, prompt, json_schema, rgst_dt, updt_dt)
   VALUES (?, ?, ?, ?, 'Y', ?, ?, NOW(), NOW())
 `;
@@ -90,14 +123,32 @@ export async function applyPromptTransaction(
   conn: PoolConnection,
   input: ApplyPromptInput
 ): Promise<ApplyPromptResult> {
-  const { svc_cd, prmt_cd, json_schema } = CHANNEL_CODES[input.channel];
+  const { svc_cd, prmt_cd, json_schema } = resolveChannelCode(
+    input.channel,
+    input.industry
+  );
   const mainJsonSchema =
     input.jsonSchemaOverride !== undefined ? input.jsonSchemaOverride : json_schema;
 
   await conn.beginTransaction();
 
   try {
-    await conn.execute(INSERT_MAIN_SQL, [
+    // Pre-check: no existing rows for any of the 4 target prmt_cds.
+    const [existingResult] = await conn.execute(CHECK_EXISTING_SQL, [
+      input.companySeq,
+      input.aiStaffSeq,
+      svc_cd,
+      prmt_cd,
+      ...SIBLING_PRMT_CDS,
+    ]);
+    const existingRows = existingResult as unknown as ExistingPrmtRow[];
+    if (existingRows.length > 0) {
+      throw new ExistingPromptsError(existingRows.map((r) => r.prmt_cd));
+    }
+
+    // Plain INSERT for main. Duplicate-key errors (from a concurrent
+    // insert) are converted to ExistingPromptsError in the catch block.
+    await conn.execute(INSERT_SQL, [
       input.companySeq,
       input.aiStaffSeq,
       svc_cd,
@@ -107,10 +158,9 @@ export async function applyPromptTransaction(
     ]);
 
     const siblings: ApplySiblingResult[] = [];
-
     for (const sibPrmt of SIBLING_PRMT_CDS) {
       const def = SIBLING_DEFAULTS[sibPrmt];
-      const [res] = await conn.execute(INSERT_SIBLING_SQL, [
+      const [res] = await conn.execute(INSERT_SQL, [
         input.companySeq,
         input.aiStaffSeq,
         svc_cd,
@@ -119,11 +169,10 @@ export async function applyPromptTransaction(
         def.json_schema,
       ]);
       const packet = res as unknown as OkPacket;
-      const created = (packet?.affectedRows ?? 0) === 1;
       siblings.push({
         prmt_cd: sibPrmt,
-        cstm_id: created ? packet.insertId : null,
-        created,
+        cstm_id: packet.insertId,
+        created: true,
       });
     }
 
@@ -137,7 +186,7 @@ export async function applyPromptTransaction(
     const mainCstmId = rows[0]?.cstm_id;
     if (mainCstmId == null) {
       throw new Error(
-        "applyPromptTransaction: main row lookup returned no result after upsert"
+        "applyPromptTransaction: main row lookup returned no result after insert"
       );
     }
 
@@ -149,6 +198,10 @@ export async function applyPromptTransaction(
     };
   } catch (err) {
     await conn.rollback();
+    if (err instanceof ExistingPromptsError) throw err;
+    if (isDuplicateKeyError(err)) {
+      throw new ExistingPromptsError([]);
+    }
     throw err;
   }
 }

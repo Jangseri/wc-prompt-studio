@@ -1,17 +1,19 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Loader2, CheckCircle2, Database, AlertTriangle } from "lucide-react";
+import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspaceStore, type ApplyResult } from "@/stores/workspace-store";
 import { useStructuringStore } from "@/stores/structuring-store";
-import { serialize } from "@/lib/prompt-serializer";
-import { CHANNEL_CODES } from "@/lib/prompt-codes";
+import { useCodeNames } from "@/hooks/useCodeNames";
+import { assemblePrompt } from "@/components/structuring/lib/assemble-prompt";
+import { CHANNEL_CODES, SIBLING_PRMT_CDS } from "@/lib/prompt-codes";
 
 export function ApplyStep() {
   const companySeq = useWorkspaceStore((s) => s.companySeq);
   const aiStaffSeq = useWorkspaceStore((s) => s.aiStaffSeq);
   const channel = useWorkspaceStore((s) => s.channel);
+  const industry = useWorkspaceStore((s) => s.industry);
 
   const isApplying = useWorkspaceStore((s) => s.isApplying);
   const applyStatus = useWorkspaceStore((s) => s.applyStatus);
@@ -27,8 +29,15 @@ export function ApplyStep() {
   const setChannel = useWorkspaceStore((s) => s.setChannel);
   const structuringReset = useStructuringStore((s) => s.reset);
   const structuringPrompt = useStructuringStore((s) => s.prompt);
+  const targetLLM = useStructuringStore((s) => s.targetLLM);
+  const { getCodeName } = useCodeNames();
 
   const [confirming, setConfirming] = useState(false);
+
+  const channelLabel = channel === "callbot" ? "콜봇" : channel === "chatbot" ? "챗봇" : "–";
+  const mainPrmtCd = channel ? CHANNEL_CODES[channel].prmt_cd : null;
+  const mainName = mainPrmtCd ? getCodeName(mainPrmtCd) : "–";
+  const siblingNames = SIBLING_PRMT_CDS.map((cd) => getCodeName(cd));
 
   const handleApply = useCallback(async () => {
     if (!channel) return;
@@ -36,7 +45,11 @@ export function ApplyStep() {
     setApplyStatus("idle");
     setApplyError(null);
     try {
-      const serialized = serialize(structuringPrompt);
+      // Save the rendered prompt (what Preview shows) — not the
+      // internal round-trip serialization. The stored text is consumed
+      // as-is by downstream LLM runners, and Management edits it as
+      // plain text.
+      const rendered = assemblePrompt(structuringPrompt, targetLLM);
       const res = await fetch("/api/prompts", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -44,10 +57,29 @@ export function ApplyStep() {
           company_seq: companySeq,
           ai_staff_seq: aiStaffSeq,
           channel,
-          prompt: serialized,
+          industry,
+          prompt: rendered,
         }),
       });
       const data = await res.json();
+      if (res.status === 409) {
+        // Strict no-overwrite policy: existing rows block the apply.
+        // Surface the specific prmt_cds and direct the user to the
+        // management flow for in-place editing.
+        const existing = Array.isArray(data?.existingPrmtCds)
+          ? (data.existingPrmtCds as string[])
+          : [];
+        const names = existing.map((cd) => {
+          const display = getCodeName(cd);
+          return display && display !== cd ? `${display}(${cd})` : cd;
+        });
+        const list = names.length > 0 ? ` (${names.join(", ")})` : "";
+        const msg = `이미 등록된 프롬프트가 있어 저장할 수 없습니다${list}. '프롬프트 관리'에서 편집해주세요.`;
+        setApplyError(msg);
+        setApplyStatus("error");
+        toast.error("기존 프롬프트가 있어 저장할 수 없습니다");
+        return;
+      }
       if (!res.ok || !data.success) {
         throw new Error(data?.error ?? `HTTP ${res.status}`);
       }
@@ -73,13 +105,16 @@ export function ApplyStep() {
     }
   }, [
     channel,
+    industry,
     companySeq,
     aiStaffSeq,
     structuringPrompt,
+    targetLLM,
     setApplying,
     setApplyStatus,
     setApplyError,
     setApplyResult,
+    getCodeName,
   ]);
 
   if (applyStatus === "success" && applyResult) {
@@ -104,24 +139,47 @@ export function ApplyStep() {
     );
   }
 
-  const svcCd = channel ? CHANNEL_CODES[channel].svc_cd : "-";
-  const prmtCd = channel ? CHANNEL_CODES[channel].prmt_cd : "-";
-
   return (
     <div className="space-y-5">
-      <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-1 text-xs">
-        <p>
-          <span className="text-muted-foreground">대상: </span>
-          <span className="font-medium">
-            {companySeq} / {aiStaffSeq}
-          </span>{" "}
-          ·{" "}
-          <span className="text-muted-foreground">채널: </span>
-          <span className="font-medium">{channel ?? "–"}</span>
+      <div className="rounded-md border border-border/60 bg-muted/20 p-4 space-y-3 text-sm">
+        <p className="text-xs text-muted-foreground">
+          아래 내용으로 프롬프트를 저장합니다.
         </p>
-        <p className="text-muted-foreground">
-          생성 레코드: 메인 {svcCd}/{prmtCd} + 형제 PA4000/PA1000/PC1000 (기본값 INSERT IGNORE)
-        </p>
+        <dl className="space-y-1.5 text-xs">
+          <div className="flex gap-3">
+            <dt className="w-20 shrink-0 text-muted-foreground">회사</dt>
+            <dd className="font-mono text-foreground/90">{companySeq || "–"}</dd>
+          </div>
+          <div className="flex gap-3">
+            <dt className="w-20 shrink-0 text-muted-foreground">담당자</dt>
+            <dd className="font-mono text-foreground/90">{aiStaffSeq || "–"}</dd>
+          </div>
+          <div className="flex gap-3">
+            <dt className="w-20 shrink-0 text-muted-foreground">채널</dt>
+            <dd className="font-medium">{channelLabel}</dd>
+          </div>
+        </dl>
+        <div className="rounded-md border border-border/50 bg-background/40 p-2.5 space-y-1.5">
+          <p className="text-[11px] font-medium text-foreground/80">저장될 프롬프트</p>
+          <ul className="space-y-0.5 text-[11px] text-muted-foreground">
+            <li>
+              <span className="mr-1 text-primary">●</span>
+              <span className="text-foreground/90">{mainName}</span>{" "}
+              <span className="text-muted-foreground">(메인)</span>
+            </li>
+            {siblingNames.map((name, i) => (
+              <li key={SIBLING_PRMT_CDS[i]}>
+                <span className="mr-1">○</span>
+                {name} <span>(관련)</span>
+              </li>
+            ))}
+          </ul>
+          <p className="text-[10px] text-muted-foreground pt-1">
+            이 회사·담당자에 이미 등록된 프롬프트가 하나라도 있으면{" "}
+            <span className="font-medium">저장이 거부</span>됩니다. 기존 프롬프트는{" "}
+            <span className="font-medium">&apos;프롬프트 관리&apos;</span>에서 편집해주세요.
+          </p>
+        </div>
       </div>
 
       {applyError && (
@@ -148,14 +206,14 @@ export function ApplyStep() {
             disabled={isApplying || !channel}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
-            프롬프트 적용
+            저장
           </button>
         ) : (
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setConfirming(false)}
-              className="rounded-md border border-border px-3 py-2 text-sm text-muted-foreground hover:border-primary/40"
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm text-muted-foreground transition-smooth hover:border-primary/50 hover:bg-muted hover:text-foreground disabled:opacity-50"
               disabled={isApplying}
             >
               취소
@@ -168,10 +226,10 @@ export function ApplyStep() {
             >
               {isApplying ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> 적용 중…
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> 저장 중…
                 </>
               ) : (
-                <>덮어쓰기로 적용</>
+                <>확인하고 저장</>
               )}
             </button>
           </div>
@@ -180,8 +238,8 @@ export function ApplyStep() {
 
       {confirming && (
         <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-400">
-          기존에 동일 (company_seq, ai_staff_seq, {svcCd}, {prmtCd}) 레코드가 있으면 메인은
-          덮어쓰기됩니다. 형제(PA4000 · PA1000 · PC1000)는 INSERT IGNORE로 기존 값 보존합니다.
+          위 내용으로 새 프롬프트를 저장합니다. 이 회사·담당자에 이미 등록된 프롬프트가 있으면
+          저장이 <span className="font-semibold">거부</span>됩니다 (덮어쓰기 안 됨).
         </p>
       )}
     </div>
@@ -203,26 +261,26 @@ function ApplyDone({
   onDifferentChannel,
   onContinueEdit,
 }: ApplyDoneProps) {
+  const { getCodeName } = useCodeNames();
+  const mainName = getCodeName(result.main.prmt_cd);
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-3 rounded-md border border-primary/40 bg-primary/5 p-4">
         <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
         <div className="space-y-2">
-          <p className="text-sm font-semibold">프롬프트 적용 완료</p>
+          <p className="text-sm font-semibold">저장이 완료되었습니다</p>
           <ul className="space-y-1 text-xs">
-            <li className="flex items-center gap-2">
-              <Database className="h-3 w-3 text-primary" />
-              <span className="font-medium">
-                {result.main.svc_cd} / {result.main.prmt_cd}
-              </span>
-              <span className="text-muted-foreground">cstm_id={result.main.cstm_id} (메인)</span>
+            <li>
+              <span className="mr-1 text-primary">●</span>
+              <span className="font-medium text-foreground/90">{mainName}</span>{" "}
+              <span className="text-muted-foreground">(메인 · 저장됨)</span>
             </li>
             {result.siblings.map((s) => (
-              <li key={s.prmt_cd} className="flex items-center gap-2">
-                <Database className="h-3 w-3 text-muted-foreground" />
-                <span className="font-medium">{s.prmt_cd}</span>
+              <li key={s.prmt_cd}>
+                <span className="mr-1">○</span>
+                <span className="text-foreground/90">{getCodeName(s.prmt_cd)}</span>{" "}
                 <span className="text-muted-foreground">
-                  {s.created ? `cstm_id=${s.cstm_id} (신규)` : "기존 행 유지"}
+                  ({s.created ? "신규 추가" : "기존 값 유지"})
                 </span>
               </li>
             ))}
@@ -234,24 +292,24 @@ function ApplyDone({
         <button
           type="button"
           onClick={onNew}
-          className="rounded-md border border-border px-3 py-2 text-sm hover:border-primary/40"
+          className="rounded-md border border-border px-3 py-2 text-sm hover:border-primary/40 hover:bg-muted"
         >
-          신규 시작
+          새 워크플로우 시작
         </button>
         <button
           type="button"
           onClick={onDifferentChannel}
-          className="rounded-md border border-border px-3 py-2 text-sm hover:border-primary/40"
+          className="rounded-md border border-border px-3 py-2 text-sm hover:border-primary/40 hover:bg-muted disabled:opacity-50"
           disabled={!channel}
         >
-          다른 채널 적용
+          다른 채널에도 적용
         </button>
         <button
           type="button"
           onClick={onContinueEdit}
-          className="rounded-md border border-border px-3 py-2 text-sm hover:border-primary/40"
+          className="rounded-md border border-border px-3 py-2 text-sm hover:border-primary/40 hover:bg-muted"
         >
-          편집 이어하기
+          계속 편집
         </button>
       </div>
     </div>

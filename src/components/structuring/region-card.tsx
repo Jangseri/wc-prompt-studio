@@ -14,7 +14,24 @@ import {
   ToolCallingSection,
   SystemSection,
   ConversationSection,
+  CustomSection,
 } from "./regions";
+
+// Per-region expanded body heights. Tuned per region based on content
+// density — cards with just a label + short textarea are smaller;
+// cards with lists, multi-field forms, or long default content (like
+// the STT/TTS rule block) get more room.
+const REGION_HEIGHTS: Record<RegionId, string> = {
+  role: "h-[220px]",
+  persona: "h-[220px]",
+  companyInfo: "h-[300px]",
+  system: "h-[300px]",
+  conversation: "h-[240px]",
+  toolCalling: "h-[240px]",
+  branching: "h-[300px]",
+  custom: "h-[300px]",
+  answerScope: "h-[240px]",
+};
 
 function RegionBody({ id }: { id: RegionId }) {
   const prompt = useStructuringStore((s) => s.prompt);
@@ -35,6 +52,8 @@ function RegionBody({ id }: { id: RegionId }) {
       return <SystemSection value={prompt.system} />;
     case "conversation":
       return <ConversationSection value={prompt.conversation} />;
+    case "custom":
+      return <CustomSection value={prompt.custom} />;
   }
 }
 
@@ -80,7 +99,12 @@ export function RegionCard({ id }: { id: RegionId }) {
       </button>
 
       {expanded && (
-        <div className="border-t border-border px-4 py-4">
+        <div
+          className={cn(
+            "overflow-y-auto border-t border-border px-4 py-4",
+            REGION_HEIGHTS[id]
+          )}
+        >
           <RegionBody id={id} />
         </div>
       )}

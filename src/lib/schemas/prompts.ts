@@ -14,9 +14,12 @@ export const channelPromptsPostSchema = z.object({
   company_seq: identifierSchema,
   ai_staff_seq: identifierSchema,
   channel: channelSchema,
+  /** Industry from the Source step. Combined with channel to pick the
+   *  svc_cd via resolveChannelCode() (e.g. 병원 + callbot → SA1200). */
+  industry: z.string().min(1).max(100),
   prompt: promptField,
   /** Optional override for the main record's json_schema. Leaving it undefined
-   *  uses CHANNEL_CODES[channel].json_schema. */
+   *  uses the resolved ChannelCode.json_schema. */
   json_schema: jsonSchemaField,
   status: statusSchema.optional(),
 });

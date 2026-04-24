@@ -55,8 +55,19 @@ export function ChatInput() {
     addChatMessage(assistantMsg);
 
     try {
+      // Greeting is rendered virtually in ChatWindow (not stored in
+      // chatMessages) so it stays in sync with Regions edits. Prepend
+      // it here as a synthetic assistant turn so the LLM sees the full
+      // conversation context. Also drop any legacy seeded greeting.
+      const greetingText = prompt.companyInfo.greeting.trim();
+      const history = chatMessages
+        .filter((m) => m.id !== "greeting")
+        .map((m) => ({ role: m.role, content: m.content }));
       const messages = [
-        ...chatMessages.map((m) => ({ role: m.role, content: m.content })),
+        ...(greetingText
+          ? [{ role: "assistant" as const, content: greetingText }]
+          : []),
+        ...history,
         { role: "user" as const, content: trimmed },
       ];
 
@@ -110,7 +121,7 @@ export function ChatInput() {
           placeholder="테스트 발화를 입력하세요..."
           rows={1}
           className={cn(
-            "w-full resize-none rounded-xl border border-border bg-muted px-4 py-2.5 pr-12 text-sm",
+            "w-full resize-none rounded-xl border border-border bg-muted px-3 py-2 pr-11 text-xs",
             "focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/50",
             "max-h-32 transition-smooth"
           )}

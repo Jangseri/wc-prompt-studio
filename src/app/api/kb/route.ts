@@ -43,8 +43,20 @@ export async function GET(request: Request) {
       } satisfies ApiResponse<string[]>)
     }
 
+    // "KB 폴더 자체가 아직 생성되지 않음" 같은 상태는 장애가 아니라
+    // 단순히 "데이터 없음" 신호로 취급. 빈 배열로 내려보내면 UI의
+    // 기존 empty-state ("이 회사에 연결된 KB가 없습니다.")가 표시됨.
+    const errMsg = typeof data.errMessage === 'string' ? data.errMessage : ''
+    const isFolderNotFound = /폴더.*존재하지\s*않|경로를\s*확인/.test(errMsg)
+    if (isFolderNotFound) {
+      return NextResponse.json({
+        success: true,
+        data: [] as string[],
+      } satisfies ApiResponse<string[]>)
+    }
+
     return NextResponse.json(
-      { success: false, error: data.errMessage || '오케스트레이터 오류' } satisfies ApiResponse<null>,
+      { success: false, error: errMsg || '오케스트레이터 오류' } satisfies ApiResponse<null>,
       { status: 502 }
     )
   } catch (err) {

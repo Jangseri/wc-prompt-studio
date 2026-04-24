@@ -117,6 +117,7 @@ describe("promptsPostSchema", () => {
       company_seq: "__TEST__hospital",
       ai_staff_seq: "1",
       channel: "callbot",
+      industry: "병원",
       prompt: "hello",
     });
     expect(res.success).toBe(true);
@@ -137,6 +138,7 @@ describe("promptsPostSchema", () => {
     const res = promptsPostSchema.safeParse({
       ai_staff_seq: "1",
       channel: "callbot",
+      industry: "일반",
       prompt: "x",
     });
     expect(res.success).toBe(false);
@@ -147,6 +149,7 @@ describe("promptsPostSchema", () => {
       company_seq: "a'); DROP TABLE cstm_prmt_info; --",
       ai_staff_seq: "1",
       channel: "callbot",
+      industry: "일반",
       prompt: "x",
     });
     expect(res.success).toBe(false);
@@ -157,6 +160,7 @@ describe("promptsPostSchema", () => {
       company_seq: "A",
       ai_staff_seq: "1",
       channel: "chatbot",
+      industry: "일반",
       prompt: "x",
     });
     const legacy = legacyPromptsPostSchema.parse({

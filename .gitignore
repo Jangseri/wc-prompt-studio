@@ -34,6 +34,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# application logs (server-side, file-based)
+/logs
+
 # env files (can opt-in for committing if needed)
 .env*
 

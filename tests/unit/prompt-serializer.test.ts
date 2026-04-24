@@ -28,8 +28,21 @@ function makeFixture(overrides: Partial<StructuringPrompt> = {}): StructuringPro
       },
     },
     branching: {
-      description: "진료/예약/문의 3개 분기",
-      pseudoCode: "if intent == '예약' => ...",
+      topLevelRules: [
+        "신환 여부 답변 전에는 업무 시간 안내 금지",
+      ],
+      steps: [
+        {
+          id: "step-1",
+          title: "부서 확인",
+          body: "→ 고객 문의에 따라 부서 식별",
+        },
+        {
+          id: "step-2",
+          title: "신환 여부 확인",
+          body: '"저희 병원에 방문하신 적이 있나요?"',
+        },
+      ],
     },
     toolCalling: { mcp: "", api: "", agent: "", dataQuery: "" },
     system: { sttTts: "Clova STT + Polly TTS" },
@@ -42,6 +55,11 @@ function makeFixture(overrides: Partial<StructuringPrompt> = {}): StructuringPro
         restrictedInfoOnly: false,
       },
       customNotes: "줄바꿈\n포함\n여러\n줄",
+    },
+    custom: {
+      items: [
+        { id: "cs-1", tag: "주의 사항", content: "반드시 존댓말을 사용합니다." },
+      ],
     },
     ...overrides,
   };
@@ -83,6 +101,7 @@ describe("serialize / deserialize roundtrip", () => {
       "toolCalling",
       "system",
       "conversation",
+      "custom",
     ]) {
       expect(output).toContain(`<!-- REGION:${id} -->`);
       expect(output).toContain(`<!-- /REGION:${id} -->`);

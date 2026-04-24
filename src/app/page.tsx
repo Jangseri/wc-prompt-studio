@@ -1,6 +1,6 @@
 import Header from "@/components/layout/header";
 import { WorkspaceShell } from "@/components/workspace/workspace-shell";
-import { WorkflowPanel } from "@/components/workspace/workflow-panel";
+import { CenterPanel } from "@/components/workspace/center-panel";
 import { CompanySidebar } from "@/components/workspace/company-sidebar";
 import { PreviewChatPanel } from "@/components/workspace/preview-chat-panel";
 
@@ -10,7 +10,7 @@ export default function StudioPage() {
       <Header />
       <WorkspaceShell
         sidebar={<CompanySidebar />}
-        workflow={<WorkflowPanel />}
+        workflow={<CenterPanel />}
         preview={<PreviewChatPanel />}
       />
     </div>

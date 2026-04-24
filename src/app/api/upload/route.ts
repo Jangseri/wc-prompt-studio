@@ -3,6 +3,7 @@ import { parseExcel } from "@/lib/excel-parser";
 import { extractImagesFromXlsx } from "@/lib/image-extractor";
 import { openai } from "@/lib/openai";
 import { IMAGE_ANALYSIS_PROMPT } from "@/lib/system-prompt";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
             const desc = response.choices[0]?.message?.content;
             if (desc) imageDescriptions.push(desc);
           } catch (err) {
-            console.error("Image analysis failed:", err);
+            logger.error("[upload] image analysis failed", err);
             warnings.push(`엑셀 내 이미지 "${img.fileName}" 분석 실패`);
           }
         }
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
           const desc = response.choices[0]?.message?.content;
           if (desc) imageDescriptions.push(desc);
         } catch (err) {
-          console.error("Image analysis failed:", err);
+          logger.error("[upload] image analysis failed", err);
           warnings.push(`이미지 "${file.name}" 분석 실패`);
         }
       }
@@ -112,7 +113,7 @@ export async function POST(req: NextRequest) {
       ...(warnings.length > 0 && { warnings }),
     });
   } catch (err) {
-    console.error("Upload error:", err);
+    logger.error("[upload] failed", err);
     return NextResponse.json(
       { error: "Upload processing failed" },
       { status: 500 }

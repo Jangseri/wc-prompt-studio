@@ -14,7 +14,7 @@ const STEP_META: Record<
 > = {
   setup: {
     title: "Setup",
-    description: "company_seq · ai_staff_seq",
+    description: "company · staff",
     render: () => <SetupStep />,
   },
   source: {
@@ -29,7 +29,7 @@ const STEP_META: Record<
   },
   regions: {
     title: "Regions",
-    description: "8영역 편집",
+    description: "프롬프트 구성 편집",
     render: () => <RegionsStep />,
   },
   apply: {
@@ -90,6 +90,11 @@ export function WorkflowPanel() {
         else if (stepIdx < currentIdx) status = "done";
         else status = "pending";
 
+        // Pending (not-yet-reached) steps cannot be jumped to directly —
+        // the user must complete the current step first. "done" steps
+        // stay clickable so they can navigate back to review/edit.
+        const canJumpHere = status !== "pending";
+
         return (
           <StepCard
             key={id}
@@ -98,7 +103,7 @@ export function WorkflowPanel() {
             title={meta.title}
             description={meta.description}
             status={status}
-            onExpand={() => setStep(id)}
+            onExpand={canJumpHere ? () => setStep(id) : undefined}
           >
             {meta.render()}
           </StepCard>

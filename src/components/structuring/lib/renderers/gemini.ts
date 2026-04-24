@@ -1,5 +1,9 @@
 import type { StructuringPrompt } from "@/types/structuring";
 import { activeConversationRules } from "../rules";
+import {
+  renderReferenceBlock,
+  shouldRenderReferenceBlock,
+} from "../reference-block";
 
 const hasText = (s: string) => s.trim().length > 0;
 
@@ -32,60 +36,50 @@ export function renderGemini(p: StructuringPrompt): string {
     blocks.push(section("업무 및 회사 정보", lines.join("\n")));
   }
 
-  const scopeLines: string[] = [];
-  if (p.answerScope.rag.enabled) {
-    scopeLines.push(
-      `## RAG\n- 활성화됨${
-        hasText(p.answerScope.rag.performanceNotes)
-          ? `\n- 성능 개선: ${p.answerScope.rag.performanceNotes.trim()}`
-          : ""
-      }`
-    );
-  }
-  const specifics = p.answerScope.specifics;
-  if (specifics.type === "keyValue" && specifics.keyValueItems.some((i) => hasText(i.key) || hasText(i.value))) {
-    const kv = specifics.keyValueItems
-      .filter((i) => hasText(i.key) || hasText(i.value))
-      .map((i) => `- ${i.key.trim()}: ${i.value.trim()}`)
-      .join("\n");
-    scopeLines.push(`## 특정 내용 지정 (Key:Value)\n${kv}`);
-  } else if (specifics.type === "sentence" && hasText(specifics.sentence)) {
-    scopeLines.push(`## 특정 내용 지정\n${specifics.sentence.trim()}`);
-  }
-  if (scopeLines.length > 0) {
-    blocks.push(section("대답의 범위 및 내용", scopeLines.join("\n\n")));
-  }
-
-  const branchLines: string[] = [];
-  if (hasText(p.branching.description)) branchLines.push(p.branching.description.trim());
-  if (hasText(p.branching.pseudoCode)) {
-    branchLines.push(`\n\`\`\`\n${p.branching.pseudoCode.trim()}\n\`\`\``);
-  }
-  if (branchLines.length > 0) {
-    blocks.push(section("분기 처리", branchLines.join("\n")));
-  }
-
-  const toolLines: string[] = [];
-  if (hasText(p.toolCalling.mcp)) toolLines.push(`- MCP: ${p.toolCalling.mcp.trim()}`);
-  if (hasText(p.toolCalling.api)) toolLines.push(`- API: ${p.toolCalling.api.trim()}`);
-  if (hasText(p.toolCalling.agent)) toolLines.push(`- Agent: ${p.toolCalling.agent.trim()}`);
-  if (hasText(p.toolCalling.dataQuery)) toolLines.push(`- Data Query: ${p.toolCalling.dataQuery.trim()}`);
-  if (toolLines.length > 0) {
-    blocks.push(section("TOOL 호출 규칙", toolLines.join("\n")));
-  }
-
   if (hasText(p.system.sttTts)) {
     blocks.push(section("SYSTEM (STT/TTS)", p.system.sttTts));
   }
 
-  const rules = activeConversationRules(p.conversation);
-  const convLines: string[] = [];
-  if (rules.length > 0) convLines.push(rules.map((r) => `- ${r}`).join("\n"));
-  if (hasText(p.conversation.customNotes)) {
-    convLines.push(`\n## 추가 사항\n${p.conversation.customNotes.trim()}`);
+  const convoRules = activeConversationRules(p.conversation);
+  if (convoRules.length > 0) {
+    blocks.push(section("대화 유지 규칙", convoRules.map((r) => `- ${r}`).join("\n")));
   }
-  if (convLines.length > 0) {
-    blocks.push(section("대화 유지 규칙", convLines.join("\n")));
+
+  // toolCalling is intentionally disabled — feature not yet ready.
+  // When re-enabled, restore the block here (between conversation and
+  // branching, matching REGION_ORDER position 6).
+
+  // Branching: top-level rules + numbered steps, wrapped in a single
+  // section() block (---# 대화 흐름 ---) with rules and steps as h2s.
+  const branchLines: string[] = [];
+  const gRules = p.branching.topLevelRules.filter(hasText);
+  if (gRules.length > 0) {
+    branchLines.push(
+      `## 절대 금지 규칙\n${gRules.map((r) => `- ${r.trim()}`).join("\n")}`
+    );
+  }
+  p.branching.steps.forEach((step, idx) => {
+    if (!hasText(step.title) && !hasText(step.body)) return;
+    const title = hasText(step.title) ? step.title.trim() : `단계 ${idx + 1}`;
+    const header = `## ${idx + 1}) ${title}`;
+    branchLines.push(
+      hasText(step.body) ? `${header}\n${step.body.trim()}` : header
+    );
+  });
+  if (branchLines.length > 0) {
+    blocks.push(section("대화 흐름", branchLines.join("\n\n")));
+  }
+
+  for (const item of p.custom.items) {
+    if (hasText(item.tag) && hasText(item.content)) {
+      blocks.push(section(item.tag.trim(), item.content));
+    }
+  }
+
+  // AnswerScope has no standalone output block — its RAG flag and
+  // specifics all feed into the [답변 참고자료] block at the bottom.
+  if (shouldRenderReferenceBlock(p)) {
+    blocks.push(renderReferenceBlock(p));
   }
 
   return blocks.join("\n\n");

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { getPool, sanitizeDbError } from "@/lib/db";
-import { applyPromptTransaction } from "@/lib/apply-prompt";
+import { applyPromptTransaction, ExistingPromptsError } from "@/lib/apply-prompt";
 import {
   promptsPostSchema,
   isChannelPromptsPost,
@@ -102,6 +102,7 @@ export async function POST(request: Request) {
         companySeq: parsed.company_seq,
         aiStaffSeq: parsed.ai_staff_seq,
         channel: parsed.channel,
+        industry: parsed.industry,
         prompt: parsed.prompt,
         jsonSchemaOverride:
           parsed.json_schema === undefined ? undefined : parsed.json_schema,
@@ -128,6 +129,17 @@ export async function POST(request: Request) {
         { status: 201 }
       );
     } catch (err) {
+      if (err instanceof ExistingPromptsError) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "이미 등록된 프롬프트가 있어 저장할 수 없습니다. 기존 프롬프트는 '프롬프트 관리'에서 편집해주세요.",
+            existingPrmtCds: err.existingPrmtCds,
+          } as ApiResponse<null> & { existingPrmtCds: string[] },
+          { status: 409 }
+        );
+      }
       return NextResponse.json(
         { success: false, error: sanitizeDbError(err) } satisfies ApiResponse<null>,
         { status: 500 }

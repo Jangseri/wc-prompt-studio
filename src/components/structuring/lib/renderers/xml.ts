@@ -1,5 +1,9 @@
 import type { StructuringPrompt } from "@/types/structuring";
 import { activeConversationRules } from "../rules";
+import {
+  renderReferenceBlock,
+  shouldRenderReferenceBlock,
+} from "../reference-block";
 
 const hasText = (s: string) => s.trim().length > 0;
 
@@ -31,65 +35,62 @@ export function renderXml(p: StructuringPrompt): string {
     blocks.push(`<company_info>\n${inner.join("\n")}\n</company_info>`);
   }
 
-  const scopeInner: string[] = [];
-  if (p.answerScope.rag.enabled) {
-    const ragInner = hasText(p.answerScope.rag.performanceNotes)
-      ? `    <performance_notes>${p.answerScope.rag.performanceNotes.trim()}</performance_notes>\n  `
-      : "  ";
-    scopeInner.push(`  <rag enabled="true">\n  ${ragInner}</rag>`);
-  }
-  const specifics = p.answerScope.specifics;
-  if (specifics.type === "keyValue" && specifics.keyValueItems.some((i) => hasText(i.key) || hasText(i.value))) {
-    const items = specifics.keyValueItems
-      .filter((i) => hasText(i.key) || hasText(i.value))
-      .map((i) => `    <item key="${i.key.trim()}">${i.value.trim()}</item>`)
-      .join("\n");
-    scopeInner.push(`  <specifics type="key_value">\n${items}\n  </specifics>`);
-  } else if (specifics.type === "sentence" && hasText(specifics.sentence)) {
-    scopeInner.push(`  <specifics type="sentence">\n  ${specifics.sentence.trim()}\n  </specifics>`);
-  }
-  if (scopeInner.length > 0) {
-    blocks.push(`<answer_scope>\n${scopeInner.join("\n")}\n</answer_scope>`);
+  if (hasText(p.system.sttTts)) {
+    blocks.push(wrap("system", p.system.sttTts));
   }
 
-  const branchInner: string[] = [];
-  if (hasText(p.branching.description)) {
-    branchInner.push(`  <description>${p.branching.description.trim()}</description>`);
+  const convoRules = activeConversationRules(p.conversation);
+  if (convoRules.length > 0) {
+    const ruleLines = convoRules.map((r) => `    <rule>${r}</rule>`).join("\n");
+    blocks.push(
+      `<conversation>\n  <rules>\n${ruleLines}\n  </rules>\n</conversation>`
+    );
   }
-  if (hasText(p.branching.pseudoCode)) {
-    branchInner.push(`  <pseudo_code>\n${p.branching.pseudoCode.trim()}\n  </pseudo_code>`);
+
+  // toolCalling is intentionally disabled — feature not yet ready.
+  // When re-enabled, restore the block here (between conversation and
+  // branching, matching REGION_ORDER position 6).
+
+  // Branching: top-level rules + numbered steps wrapped in <branching>.
+  const branchInner: string[] = [];
+  const branchRules = p.branching.topLevelRules.filter(hasText);
+  if (branchRules.length > 0) {
+    const ruleTags = branchRules
+      .map((r) => `    <rule>${r.trim()}</rule>`)
+      .join("\n");
+    branchInner.push(`  <top_level_rules>\n${ruleTags}\n  </top_level_rules>`);
+  }
+  const stepTags: string[] = [];
+  p.branching.steps.forEach((step, idx) => {
+    if (!hasText(step.title) && !hasText(step.body)) return;
+    const title = hasText(step.title)
+      ? step.title.trim().replace(/"/g, "&quot;")
+      : `단계 ${idx + 1}`;
+    const body = hasText(step.body) ? `\n${step.body.trim()}\n    ` : "";
+    stepTags.push(
+      `    <step index="${idx + 1}" title="${title}">${body}</step>`
+    );
+  });
+  if (stepTags.length > 0) {
+    branchInner.push(`  <steps>\n${stepTags.join("\n")}\n  </steps>`);
   }
   if (branchInner.length > 0) {
     blocks.push(`<branching>\n${branchInner.join("\n")}\n</branching>`);
   }
 
-  const toolInner: string[] = [];
-  if (hasText(p.toolCalling.mcp)) toolInner.push(`  <mcp>${p.toolCalling.mcp.trim()}</mcp>`);
-  if (hasText(p.toolCalling.api)) toolInner.push(`  <api>${p.toolCalling.api.trim()}</api>`);
-  if (hasText(p.toolCalling.agent)) toolInner.push(`  <agent>${p.toolCalling.agent.trim()}</agent>`);
-  if (hasText(p.toolCalling.dataQuery)) {
-    toolInner.push(`  <data_query>${p.toolCalling.dataQuery.trim()}</data_query>`);
-  }
-  if (toolInner.length > 0) {
-    blocks.push(`<tool_calling>\n${toolInner.join("\n")}\n</tool_calling>`);
+  for (const item of p.custom.items) {
+    if (hasText(item.tag) && hasText(item.content)) {
+      const nameAttr = item.tag.trim().replace(/"/g, "&quot;");
+      blocks.push(
+        `<section name="${nameAttr}">\n${item.content.trim()}\n</section>`
+      );
+    }
   }
 
-  if (hasText(p.system.sttTts)) {
-    blocks.push(wrap("system", p.system.sttTts));
-  }
-
-  const rules = activeConversationRules(p.conversation);
-  const convInner: string[] = [];
-  if (rules.length > 0) {
-    convInner.push(
-      `  <rules>\n${rules.map((r) => `    <rule>${r}</rule>`).join("\n")}\n  </rules>`
-    );
-  }
-  if (hasText(p.conversation.customNotes)) {
-    convInner.push(`  <additional_notes>\n  ${p.conversation.customNotes.trim()}\n  </additional_notes>`);
-  }
-  if (convInner.length > 0) {
-    blocks.push(`<conversation>\n${convInner.join("\n")}\n</conversation>`);
+  // AnswerScope has no standalone output block — its RAG flag and
+  // specifics all feed into the [답변 참고자료] block at the bottom.
+  if (shouldRenderReferenceBlock(p)) {
+    blocks.push(renderReferenceBlock(p));
   }
 
   return blocks.join("\n\n");

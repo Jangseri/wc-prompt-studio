@@ -11,6 +11,11 @@ import {
 } from "@/lib/system-prompt";
 import { generateRequestSchema, isRegionsRequest } from "@/lib/schemas/generate";
 import { check as rateCheck, getClientIp } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
+import {
+  applyIndustryPreset,
+  DEFAULT_STT_TTS_RULES,
+} from "@/lib/regions-presets";
 import type { StructuringPrompt } from "@/types/structuring";
 
 const RATE_LIMIT = { capacity: 10, refillPerSecond: 10 / 60 }; // ~10/min burst
@@ -100,11 +105,28 @@ async function handleRegions(body: {
     try {
       structuring = JSON.parse(content) as StructuringPrompt;
     } catch (err) {
-      console.error("[generate:regions] JSON parse failed", err);
+      logger.error("[generate:regions] JSON parse failed", err);
       return NextResponse.json(
         { error: "LLM 응답이 JSON 형식이 아닙니다" },
         { status: 502 }
       );
+    }
+
+    structuring = applyIndustryPreset(structuring, body.industry);
+
+    // Server-enforced defaults / cleanups. These intentionally override
+    // whatever the LLM returned because the system prompt already tells
+    // the model to leave these fields empty — this is the fallback that
+    // guarantees a consistent shape regardless of LLM drift.
+    structuring.system.sttTts = DEFAULT_STT_TTS_RULES;
+    structuring.answerScope.specifics.keyValueItems = [];
+    structuring.answerScope.specifics.sentence = "";
+    structuring.toolCalling = { mcp: "", api: "", agent: "", dataQuery: "" };
+    structuring.conversation.customNotes = "";
+    if (!structuring.custom) {
+      structuring.custom = { items: [] };
+    } else {
+      structuring.custom.items = [];
     }
 
     return NextResponse.json({
@@ -113,7 +135,7 @@ async function handleRegions(body: {
       warnings: [],
     });
   } catch (err) {
-    console.error("[generate:regions] OpenAI call failed", err);
+    logger.error("[generate:regions] OpenAI call failed", err);
     return NextResponse.json(
       { error: "프롬프트 생성에 실패했습니다" },
       { status: 500 }
@@ -171,7 +193,7 @@ async function handleLegacy(
       warnings,
     });
   } catch (err) {
-    console.error("Generate error:", err);
+    logger.error("[generate:legacy] failed", err);
     return NextResponse.json(
       { error: "Prompt generation failed" },
       { status: 500 }

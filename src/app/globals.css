@@ -113,6 +113,9 @@ body {
 
 /* ---- Legacy utility classes preserved (used by src/app/page.tsx etc.) ---- */
 
+/* Scrollbar thumb follows the theme via the --border token so it works
+ * in both light and dark without the harsh black bar that hardcoded
+ * #27272a produced on a white background. */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -123,26 +126,28 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: hsl(var(--border));
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: hsl(var(--muted-foreground) / 0.5);
 }
 
 .transition-smooth {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Glass uses the background token + alpha so the header blurs the right
+ * color in both themes. Border also follows the token. */
 .glass {
-  background: rgba(10, 10, 15, 0.8);
+  background: hsl(var(--background) / 0.8);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(39, 39, 42, 0.5);
+  border: 1px solid hsl(var(--border) / 0.5);
 }
 
 .glow-primary {
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 20px hsl(var(--primary) / 0.15);
 }
 
 .gradient-text {

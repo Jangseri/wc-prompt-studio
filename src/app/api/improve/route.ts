@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@/lib/openai";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -76,7 +77,7 @@ ${feedback}
       summary,
     });
   } catch (err) {
-    console.error("Improve error:", err);
+    logger.error("[improve] failed", err);
     return NextResponse.json(
       { error: "Prompt improvement failed" },
       { status: 500 }

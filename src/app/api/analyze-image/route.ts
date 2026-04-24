@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@/lib/openai";
 import { IMAGE_ANALYSIS_PROMPT } from "@/lib/system-prompt";
+import { logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ description });
   } catch (err) {
-    console.error("Image analysis error:", err);
+    logger.error("[analyze-image] failed", err);
     return NextResponse.json(
       { error: "Image analysis failed" },
       { status: 500 }

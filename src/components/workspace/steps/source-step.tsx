@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import type { Channel } from "@/lib/prompt-codes";
+import { useMemo, useState } from "react";
+import { Ban } from "lucide-react";
+import { resolveChannelCode, type Channel } from "@/lib/prompt-codes";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { WorkspaceFileDropzone } from "../workspace-file-dropzone";
+import { StepNav } from "../step-nav";
 
-const DEFAULT_INDUSTRIES = ["병원", "보험", "금융", "리테일", "공공", "기타"] as const;
+const DEFAULT_INDUSTRIES = ["일반", "병원"] as const;
 
 export function SourceStep() {
   const sourceFiles = useWorkspaceStore((s) => s.sourceFiles);
@@ -18,11 +20,29 @@ export function SourceStep() {
   const goPrev = useWorkspaceStore((s) => s.goPrev);
   const goNext = useWorkspaceStore((s) => s.goNext);
   const canAdvance = useWorkspaceStore((s) => s.canAdvanceFrom("source"));
+  const companySeq = useWorkspaceStore((s) => s.companySeq);
+  const aiStaffSeq = useWorkspaceStore((s) => s.aiStaffSeq);
+  const existingPromptsByService = useWorkspaceStore(
+    (s) => s.existingPromptsByService
+  );
+  const selectCompanyForManagement = useWorkspaceStore(
+    (s) => s.selectCompanyForManagement
+  );
 
   const [customIndustry, setCustomIndustry] = useState(
     !DEFAULT_INDUSTRIES.includes(industry as (typeof DEFAULT_INDUSTRIES)[number]) &&
       industry !== ""
   );
+
+  // Compute the resolved svc_cd for the currently-picked (channel, industry)
+  // pair; if it already has existing rows, surface an inline block.
+  const conflict = useMemo(() => {
+    if (!channel || !industry.trim()) return null;
+    const svcCd = resolveChannelCode(channel, industry).svc_cd;
+    const count = existingPromptsByService?.[svcCd] ?? 0;
+    if (count <= 0) return null;
+    return { svcCd, count };
+  }, [channel, industry, existingPromptsByService]);
 
   return (
     <div className="space-y-5">
@@ -43,9 +63,9 @@ export function SourceStep() {
           {(["callbot", "chatbot"] as Channel[]).map((c) => (
             <label
               key={c}
-              className={`flex flex-1 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition-smooth ${
+              className={`flex flex-1 cursor-pointer items-center justify-center rounded-md border px-3 py-2 text-sm transition-smooth ${
                 channel === c
-                  ? "border-primary/60 bg-primary/10 text-primary"
+                  ? "border-primary/60 bg-primary/10 text-primary font-medium"
                   : "border-border hover:border-primary/40"
               }`}
             >
@@ -57,7 +77,7 @@ export function SourceStep() {
                 onChange={() => setChannel(c)}
                 className="sr-only"
               />
-              {c === "callbot" ? "콜봇 (SA1000 · PD2000)" : "챗봇 (SA2000 · PD0000)"}
+              {c === "callbot" ? "콜봇" : "챗봇"}
             </label>
           ))}
         </div>
@@ -67,18 +87,22 @@ export function SourceStep() {
         <legend className="text-xs font-medium text-muted-foreground">업종</legend>
         {!customIndustry ? (
           <div className="flex items-center gap-2">
-            <select
-              value={industry}
-              onChange={(e) => setIndustry(e.target.value)}
-              className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/50"
-            >
-              <option value="">선택하세요</option>
+            <div className="flex flex-1 gap-2">
               {DEFAULT_INDUSTRIES.map((opt) => (
-                <option key={opt} value={opt}>
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setIndustry(opt)}
+                  className={`flex flex-1 cursor-pointer items-center justify-center rounded-md border px-3 py-2 text-sm transition-smooth ${
+                    industry === opt
+                      ? "border-primary/60 bg-primary/10 text-primary font-medium"
+                      : "border-border hover:border-primary/40"
+                  }`}
+                >
                   {opt}
-                </option>
+                </button>
               ))}
-            </select>
+            </div>
             <button
               type="button"
               onClick={() => {
@@ -113,23 +137,48 @@ export function SourceStep() {
         )}
       </fieldset>
 
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={goPrev}
-          className="rounded-md border border-border px-4 py-2 text-sm text-muted-foreground hover:border-primary/40"
-        >
-          ← 이전
-        </button>
-        <button
-          type="button"
-          onClick={goNext}
-          disabled={!canAdvance}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          다음: 분석 →
-        </button>
-      </div>
+      {conflict && (
+        <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs">
+          <Ban className="h-3.5 w-3.5 mt-0.5 shrink-0 text-destructive" />
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="font-medium text-destructive">
+              이 채널·업종 조합(
+              <span className="font-mono">{conflict.svcCd}</span>)에 이미 등록된
+              프롬프트가 {conflict.count}개 있습니다
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              신규 적용 불가. 다른 채널·업종을 선택하거나
+              &apos;프롬프트 관리&apos;에서 기존 프롬프트를 편집해주세요.
+            </p>
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() =>
+                  selectCompanyForManagement(
+                    companySeq.trim(),
+                    aiStaffSeq.trim()
+                  )
+                }
+                className="rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-1 text-[11px] font-medium text-destructive transition-smooth hover:bg-destructive/20"
+              >
+                프롬프트 관리로 이동 →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <StepNav
+        onPrev={goPrev}
+        onNext={goNext}
+        nextLabel="Analysis"
+        nextDisabled={!canAdvance}
+        nextDisabledHint={
+          conflict
+            ? `이미 등록된 조합(${conflict.svcCd})입니다. 다른 채널·업종을 선택하세요.`
+            : "파일 · 채널 · 업종을 모두 입력하세요"
+        }
+      />
     </div>
   );
 }

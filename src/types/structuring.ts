@@ -8,7 +8,8 @@ export type RegionId =
   | "branching"
   | "toolCalling"
   | "system"
-  | "conversation";
+  | "conversation"
+  | "custom";
 
 export interface RoleRegion {
   content: string;
@@ -44,9 +45,15 @@ export interface AnswerScopeRegion {
   };
 }
 
+export interface BranchingStep {
+  id: string;
+  title: string;
+  body: string;
+}
+
 export interface BranchingRegion {
-  description: string;
-  pseudoCode: string;
+  topLevelRules: string[];
+  steps: BranchingStep[];
 }
 
 export interface ToolCallingRegion {
@@ -71,6 +78,16 @@ export interface ConversationRegion {
   customNotes: string;
 }
 
+export interface CustomSectionItem {
+  id: string;
+  tag: string;
+  content: string;
+}
+
+export interface CustomRegion {
+  items: CustomSectionItem[];
+}
+
 export interface StructuringPrompt {
   role: RoleRegion;
   persona: PersonaRegion;
@@ -80,6 +97,7 @@ export interface StructuringPrompt {
   toolCalling: ToolCallingRegion;
   system: SystemRegion;
   conversation: ConversationRegion;
+  custom: CustomRegion;
 }
 
 export interface RegionMeta {
@@ -88,15 +106,21 @@ export interface RegionMeta {
   description: string;
 }
 
+// Order mirrors the final rendered prompt structure. Rules and context
+// come first (identity → voice → company → formatting → meta rules),
+// then tool availability, then the actual dialog flow, then user-added
+// sections. AnswerScope is last because it controls the [답변 참고자료]
+// block rendered at the very bottom of the output.
 export const REGION_ORDER: RegionId[] = [
   "role",
   "persona",
   "companyInfo",
-  "answerScope",
-  "branching",
-  "toolCalling",
   "system",
   "conversation",
+  "toolCalling",
+  "branching",
+  "custom",
+  "answerScope",
 ];
 
 export const REGION_META: Record<RegionId, RegionMeta> = {
@@ -139,6 +163,11 @@ export const REGION_META: Record<RegionId, RegionMeta> = {
     id: "conversation",
     label: "대화유지",
     description: "응대 규칙",
+  },
+  custom: {
+    id: "custom",
+    label: "커스텀 섹션",
+    description: "자유 태그 + 내용 (직접 추가)",
   },
 };
 

@@ -1,4 +1,5 @@
 import { createPool, type Pool } from 'mysql2/promise'
+import { logger } from './logger'
 
 let pool: Pool | null = null
 
@@ -23,7 +24,7 @@ export function getPool(): Pool {
     // 풀 에러 이벤트 핸들링 (커넥션 끊김 등)
     try {
       pool.pool.on('error', (err) => {
-        console.error('[DB Pool Error]', err.message)
+        logger.error('[DB Pool Error] ' + err.message, err)
         // 치명적 에러 시 풀 재생성
         if (err.message.includes('PROTOCOL_CONNECTION_LOST') || err.message.includes('ECONNREFUSED')) {
           pool = null
@@ -56,6 +57,6 @@ export function sanitizeDbError(err: unknown): string {
       return '필수 필드가 누락되었습니다'
     }
   }
-  console.error('[DB Error]', err)
+  logger.error('[DB Error]', err)
   return '서버 내부 오류가 발생했습니다'
 }
