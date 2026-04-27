@@ -27,7 +27,7 @@
     └── logs/                     ← app-YYYY-MM-DD.log (자동 생성)
 ```
 
-호스트 포트 **3001** → 컨테이너 3000.
+호스트 포트 **7999** → 컨테이너 3000.
 (diva-rag-manager 가 3000 점유 중이라 분리)
 
 ---
@@ -84,7 +84,7 @@ docker compose logs -f
 
 ```bash
 # 헬스체크
-curl http://localhost:3001/api/health
+curl http://localhost:7999/api/health
 ```
 
 정상 응답 (DB 연결 OK):
@@ -94,7 +94,7 @@ curl http://localhost:3001/api/health
 
 브라우저 접속:
 ```
-http://192.168.220.223:3001
+http://192.168.220.223:7999
 ```
 
 ---
@@ -157,7 +157,7 @@ grep 'company_seq=12345' logs/app-*.log
 ### 헬스체크 모니터링
 
 ```bash
-watch -n 10 'curl -s http://localhost:3001/api/health'
+watch -n 10 'curl -s http://localhost:7999/api/health'
 ```
 
 ---
@@ -173,7 +173,7 @@ docker compose logs wc-prompt-studio
 주요 원인:
 - `.env` 파일 없음 → `cp .env.production.example .env` 후 채우기
 - DB 접속 실패 → `DB_HOST`/`DB_PASSWORD` 확인, `192.168.220.222:3306` 방화벽 확인
-- 포트 3001 이미 사용 중 → `docker-compose.yml` 의 `ports` 변경
+- 포트 7999 이미 사용 중 → `docker-compose.yml` 의 `ports` 변경
 - 볼륨 권한 문제 → `sudo chown -R 1007:1012 logs/` (또는 compose 의 `user:` 값에 맞춰)
 
 ### 이미지 분석 실패
@@ -215,7 +215,7 @@ find logs/ -name "app-*.log" -mtime +7 -delete
 - [ ] `.env` 가 git 에 커밋되지 않았는지 (`.gitignore` 에 `.env*` 포함됨)
 - [ ] `chmod 600 .env` 로 권한 제한
 - [ ] `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DB_PASSWORD` 는 운영용으로 교체
-- [ ] 서버 방화벽에서 3001 포트는 필요한 대역만 허용 (사내 전용)
+- [ ] 서버 방화벽에서 7999 포트는 필요한 대역만 허용 (사내 전용)
 - [ ] `logs/` 에 민감정보 (프롬프트 본문, 회사 식별자 등) 기록되는지 주기 점검
 - [ ] HTTPS 필요 시 nginx 리버스 프록시 추가
 
@@ -223,7 +223,7 @@ find logs/ -name "app-*.log" -mtime +7 -delete
 
 ## nginx 리버스 프록시 (선택)
 
-HTTPS 또는 도메인이 필요하면 호스트의 nginx 에서 3001 로 프록시.
+HTTPS 또는 도메인이 필요하면 호스트의 nginx 에서 7999 로 프록시.
 
 ```nginx
 server {
@@ -237,7 +237,7 @@ server {
     proxy_buffering off;
 
     location / {
-        proxy_pass http://127.0.0.1:3001;
+        proxy_pass http://127.0.0.1:7999;
         proxy_http_version 1.1;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
@@ -284,7 +284,7 @@ git checkout <이전-commit-sha>
 docker compose up -d --build
 
 # 3. 헬스체크
-curl http://localhost:3001/api/health
+curl http://localhost:7999/api/health
 ```
 
 브랜치 단위 롤백도 가능: `git checkout main` 등.

@@ -8,9 +8,9 @@ services:
     # writable without chown. Adjust if the host user differs.
     user: "1007:1012"
     ports:
-      # Host 3001 → container 3000. 3000 on this host is taken by
+      # Host 7999 → container 3000. 3000 on this host is taken by
       # diva-rag-manager.
-      - "3001:3000"
+      - "7999:3000"
     env_file:
       - .env
     environment:
