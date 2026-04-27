@@ -96,8 +96,8 @@ export function KBViewer({ item }: KBViewerProps) {
         ) : error ? (
           <div className="h-full flex items-center justify-center">
             <div className="text-center p-6 max-w-sm">
-              <div className="w-12 h-12 mx-auto mb-3 bg-red-950/30 rounded-2xl flex items-center justify-center">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-red-400">
+              <div className="w-12 h-12 mx-auto mb-3 bg-red-500/10 dark:bg-red-950/30 rounded-2xl flex items-center justify-center">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-red-600 dark:text-red-400">
                   <circle cx="12" cy="12" r="10"/>
                   <line x1="12" y1="8" x2="12" y2="12"/>
                   <line x1="12" y1="16" x2="12.01" y2="16"/>

@@ -69,9 +69,9 @@ function DbStatusPill() {
       className={cn(
         "flex items-center gap-2 text-[12px] px-3 py-1.5 rounded-full border transition-smooth",
         dbConnected === true
-          ? "bg-emerald-950/30 border-emerald-800/40 text-emerald-400"
+          ? "bg-emerald-500/10 border-emerald-300 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-800/40 dark:text-emerald-400"
           : dbConnected === false
-          ? "bg-red-950/30 border-red-800/40 text-red-400"
+          ? "bg-red-500/10 border-red-300 text-red-700 dark:bg-red-950/30 dark:border-red-800/40 dark:text-red-400"
           : "bg-muted border-border text-muted-foreground"
       )}
     >

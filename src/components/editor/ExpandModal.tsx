@@ -57,21 +57,21 @@ export function ExpandModal({ open, target, value, modelCode, onApply, onClose }
       onClick={onClose}
     >
       <div
-        className="w-[min(900px,94vw)] h-[min(680px,88vh)] bg-[#18181b] border border-[#27272a] rounded-2xl flex flex-col shadow-float-lg animate-expand-in"
+        className="w-[min(900px,94vw)] h-[min(680px,88vh)] bg-card border border-border rounded-2xl flex flex-col shadow-float-lg animate-expand-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 bg-[#1c1c1f] border-b border-[#27272a] rounded-t-2xl flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-3 bg-muted border-b border-border rounded-t-2xl flex-shrink-0">
           <div className="flex items-center gap-2.5">
             <span className="text-[13px] font-semibold text-foreground">{title}</span>
-            <span className="text-[10px] px-2 py-[2px] bg-[#27272a] text-muted-foreground rounded-md font-mono">
+            <span className="text-[10px] px-2 py-[2px] bg-accent text-muted-foreground rounded-md font-mono">
               {badge}
             </span>
           </div>
           <button
             onClick={onClose}
             title="닫기"
-            className="w-7 h-7 flex items-center justify-center bg-transparent text-muted-foreground border border-[#333] rounded-lg cursor-pointer hover:bg-red-600/10 hover:text-red-400 hover:border-red-500/30 transition-all"
+            className="w-7 h-7 flex items-center justify-center bg-transparent text-muted-foreground border border-border rounded-lg cursor-pointer hover:bg-red-600/10 hover:text-red-600 dark:hover:text-red-400 hover:border-red-500/30 transition-all"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
               <line x1="18" y1="6" x2="6" y2="18"/>
@@ -101,9 +101,9 @@ export function ExpandModal({ open, target, value, modelCode, onApply, onClose }
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-2.5 bg-[#1c1c1f] border-t border-[#27272a] rounded-b-2xl flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-2.5 bg-muted border-t border-border rounded-b-2xl flex-shrink-0">
           <div className="flex items-center gap-3">
-            <span className="text-[11px] px-2.5 py-1 bg-[#27272a] text-sky-400 rounded-md font-mono">
+            <span className="text-[11px] px-2.5 py-1 bg-accent text-sky-700 dark:text-sky-400 rounded-md font-mono">
               {modelName}
             </span>
             <span className="text-[11px] text-muted-foreground font-mono tabular-nums">
@@ -113,7 +113,7 @@ export function ExpandModal({ open, target, value, modelCode, onApply, onClose }
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-[7px] bg-[#27272a] text-muted-foreground border border-[#333] rounded-xl text-[13px] cursor-pointer hover:bg-[#333] transition-all"
+              className="px-4 py-[7px] bg-accent text-muted-foreground border border-border rounded-xl text-[13px] cursor-pointer hover:bg-secondary transition-all"
             >
               취소
             </button>

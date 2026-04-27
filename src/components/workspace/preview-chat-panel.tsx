@@ -296,10 +296,10 @@ function KBExpandModal({
           width: "min(72rem, calc(100vw - 2rem))",
           height: "calc(100vh - 2rem)",
         }}
-        className="flex flex-col overflow-hidden rounded-2xl border border-[#27272a] bg-[#18181b] shadow-2xl"
+        className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#27272a] bg-[#1c1c1f] px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-muted px-5 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
             <span className="rounded bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
               KB
@@ -319,7 +319,7 @@ function KBExpandModal({
             onClick={onClose}
             title="닫기 (ESC)"
             aria-label="닫기"
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[#333] bg-transparent px-3 text-xs text-muted-foreground transition-all hover:border-red-500/40 hover:bg-red-600/10 hover:text-red-400"
+            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-transparent px-3 text-xs text-muted-foreground transition-all hover:border-red-500/40 hover:bg-red-600/10 hover:text-red-600 dark:hover:text-red-400"
           >
             <X className="h-3.5 w-3.5" />
             닫기 (ESC)

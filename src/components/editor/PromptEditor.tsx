@@ -255,7 +255,7 @@ export function PromptEditor({ item, isCreateMode = false, defaultCompanySeq = '
           {!isCreateMode && (
             <button
               onClick={() => setShowConfirmDelete(true)}
-              className="px-3.5 py-[7px] bg-card/80 text-red-500 border border-red-200/60 rounded-xl text-[13px] font-medium cursor-pointer hover:bg-red-950/30 hover:border-red-300 transition-all"
+              className="px-3.5 py-[7px] bg-card/80 text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800/40 rounded-xl text-[13px] font-medium cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/30 hover:border-red-400 dark:hover:border-red-600 transition-all"
             >
               삭제
             </button>
@@ -284,15 +284,15 @@ export function PromptEditor({ item, isCreateMode = false, defaultCompanySeq = '
         {/* Editors row */}
         <div className="grid grid-cols-[3fr_2fr] gap-3.5 flex-1 min-h-0">
           {/* Prompt editor */}
-          <div className="flex flex-col bg-[#18181b] border border-[#27272a] rounded-2xl overflow-hidden -lg">
-            <div className="flex items-center justify-between px-4 py-2 bg-[#1c1c1f] border-b border-[#27272a] flex-shrink-0">
+          <div className="flex flex-col bg-card border border-border rounded-2xl overflow-hidden -lg">
+            <div className="flex items-center justify-between px-4 py-2 bg-muted border-b border-border flex-shrink-0">
               <span className="text-[11px] font-semibold text-muted-foreground tracking-wide">Prompt</span>
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] px-2 py-[2px] bg-[#27272a] text-muted-foreground rounded-md font-mono">plaintext</span>
+                <span className="text-[10px] px-2 py-[2px] bg-accent text-muted-foreground rounded-md font-mono">plaintext</span>
                 <button
                   onClick={() => setExpandTarget('prompt')}
                   title="확장 편집"
-                  className="flex items-center gap-1 px-2 py-[3px] bg-transparent text-muted-foreground border border-[#333] rounded-md text-[10px] cursor-pointer hover:bg-[#27272a] hover:text-muted-foreground transition-colors"
+                  className="flex items-center gap-1 px-2 py-[3px] bg-transparent text-muted-foreground border border-border rounded-md text-[10px] cursor-pointer hover:bg-accent hover:text-muted-foreground transition-colors"
                 >
                   <ExpandIcon />
                   확장
@@ -315,8 +315,8 @@ export function PromptEditor({ item, isCreateMode = false, defaultCompanySeq = '
           </div>
 
           {/* JSON Schema editor */}
-          <div className="flex flex-col bg-[#18181b] border border-[#27272a] rounded-2xl overflow-hidden -lg relative">
-            <div className="flex items-center justify-between px-4 py-2 bg-[#1c1c1f] border-b border-[#27272a] flex-shrink-0">
+          <div className="flex flex-col bg-card border border-border rounded-2xl overflow-hidden -lg relative">
+            <div className="flex items-center justify-between px-4 py-2 bg-muted border-b border-border flex-shrink-0">
               <span className="text-[11px] font-semibold text-muted-foreground tracking-wide">JSON Schema</span>
               <div className="flex items-center gap-1.5">
                 <button
@@ -324,17 +324,17 @@ export function PromptEditor({ item, isCreateMode = false, defaultCompanySeq = '
                   title="NULL 전환"
                   className={`text-[10px] px-2 py-[2px] border rounded-md cursor-pointer font-mono transition-all ${
                     isJsonNull
-                      ? 'bg-red-600/10 text-red-400 border-red-500/30'
-                      : 'bg-transparent text-muted-foreground border-[#333] hover:text-muted-foreground'
+                      ? 'bg-red-600/10 text-red-600 dark:text-red-400 border-red-500/30'
+                      : 'bg-transparent text-muted-foreground border-border hover:text-muted-foreground'
                   }`}
                 >
                   NULL
                 </button>
-                <span className="text-[10px] px-2 py-[2px] bg-[#27272a] text-muted-foreground rounded-md font-mono">json</span>
+                <span className="text-[10px] px-2 py-[2px] bg-accent text-muted-foreground rounded-md font-mono">json</span>
                 <button
                   onClick={() => !isJsonNull && setExpandTarget('json')}
                   title="확장 편집"
-                  className={`flex items-center gap-1 px-2 py-[3px] bg-transparent text-muted-foreground border border-[#333] rounded-md text-[10px] cursor-pointer hover:bg-[#27272a] hover:text-muted-foreground transition-colors ${
+                  className={`flex items-center gap-1 px-2 py-[3px] bg-transparent text-muted-foreground border border-border rounded-md text-[10px] cursor-pointer hover:bg-accent hover:text-muted-foreground transition-colors ${
                     isJsonNull ? 'opacity-30 pointer-events-none' : ''
                   }`}
                 >
