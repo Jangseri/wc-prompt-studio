@@ -1,0 +1,39 @@
+# Source-code-adjacent dirs that bloat the build context.
+node_modules
+.next
+out
+build
+coverage
+
+# Local-only state
+.env
+.env.local
+.env.*.local
+logs
+test-results
+playwright-report
+blob-report
+
+# Sample data / docs not needed at runtime
+prompt-source
+prompt-example
+docs
+*.pdf
+
+# Test infra
+tests
+playwright.config.ts
+vitest.config.mts
+__tests__
+
+# Editor / OS / VCS noise
+.git
+.github
+.vscode
+.idea
+.DS_Store
+*.tsbuildinfo
+
+# Already covered by gitignore but listed explicitly so the build
+# context is small and reproducible.
+*.log

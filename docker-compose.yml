@@ -1,0 +1,40 @@
+services:
+  wc-prompt-studio:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: wc-prompt-studio
+    # Run as the host's seri user so the mounted ./logs volume is
+    # writable without chown. Adjust if the host user differs.
+    user: "1007:1012"
+    ports:
+      # Host 3001 → container 3000. 3000 on this host is taken by
+      # diva-rag-manager.
+      - "3001:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+    volumes:
+      # Server file logger writes here. Host path is gitignored.
+      - ./logs:/app/logs
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+    restart: unless-stopped
+    networks:
+      wc-prompt-studio-network:
+        ipv4_address: 172.24.18.2
+
+networks:
+  wc-prompt-studio-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        # diva-rag-manager occupies 172.24.17.0/24; use a sibling subnet.
+        - subnet: 172.24.18.0/24
