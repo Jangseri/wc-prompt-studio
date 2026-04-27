@@ -49,7 +49,7 @@ export function WorkspaceShell({ sidebar, workflow, preview }: WorkspaceShellPro
           {sidebar}
         </aside>
       )}
-      <section className="rounded-xl border border-border/60 bg-card/40 overflow-auto lg:sticky lg:top-[70px] lg:self-start lg:h-[calc(100vh-86px)]">
+      <section className="flex flex-col rounded-xl border border-border/60 bg-card/40 overflow-auto lg:sticky lg:top-[70px] lg:self-start lg:h-[calc(100vh-86px)]">
         {autoHide && (
           <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-border/40 bg-card/80 px-4 py-2 backdrop-blur">
             <button
@@ -68,7 +68,7 @@ export function WorkspaceShell({ sidebar, workflow, preview }: WorkspaceShellPro
             <WorkflowContextSummary />
           </div>
         )}
-        <div className="p-6">{workflow}</div>
+        <div className="flex-1 p-6">{workflow}</div>
       </section>
       <aside className="rounded-xl border border-border/60 bg-card/40 p-4 lg:sticky lg:top-[70px] lg:self-start lg:h-[calc(100vh-86px)] overflow-auto">
         {preview}
