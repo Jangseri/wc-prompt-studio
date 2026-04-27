@@ -697,8 +697,6 @@ function EditorTab() {
     setKbItems,
     setSelectedKB,
     setKbLoading,
-    setDbConnected,
-    setDbReason,
     handleSelect,
     handleCreate,
     handleCreated,
@@ -711,26 +709,8 @@ function EditorTab() {
   const { llmConfigMap } = useLlmConfig();
   const { svcGroups, prmtGroups } = useCodeOptions();
 
-  // Health check
-  useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 10000);
-        const res = await fetch("/api/health", { signal: controller.signal });
-        clearTimeout(timer);
-        const data = await res.json();
-        setDbConnected(data.connected);
-        setDbReason(data.reason ?? null);
-      } catch {
-        setDbConnected(false);
-        setDbReason("서버 응답 없음");
-      }
-    };
-    checkHealth();
-    const interval = setInterval(checkHealth, 30000);
-    return () => clearInterval(interval);
-  }, [setDbConnected, setDbReason]);
+  // Health polling lives in app/layout.tsx via <DbHealthPoller /> now,
+  // shared between / and /legacy. (See src/hooks/useDbHealth.ts.)
 
   const fetchKB = useCallback(
     async (companySeq: string) => {

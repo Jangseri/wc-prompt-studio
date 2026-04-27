@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemedToaster } from "@/components/themed-toaster";
+import { DbHealthPoller } from "@/components/db-health-poller";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,6 +35,7 @@ export default function RootLayout({
     >
       <body className="min-h-screen antialiased">
         <ThemeProvider>
+          <DbHealthPoller />
           {children}
           <ThemedToaster />
         </ThemeProvider>
