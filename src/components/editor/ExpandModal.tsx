@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
+import { useTheme } from 'next-themes'
 import { estimateTokens, getModelName } from '@/lib/tokenEstimator'
 import { EditorErrorBoundary } from './EditorErrorBoundary'
 
@@ -18,6 +19,8 @@ interface ExpandModalProps {
 
 export function ExpandModal({ open, target, value, modelCode, onApply, onClose }: ExpandModalProps) {
   const [text, setText] = useState(value)
+  const { resolvedTheme } = useTheme()
+  const monacoTheme = resolvedTheme === 'light' ? 'vs' : 'vs-dark'
 
   useEffect(() => {
     if (open) setText(value)
@@ -86,7 +89,7 @@ export function ExpandModal({ open, target, value, modelCode, onApply, onClose }
             <MonacoEditor
               height="100%"
               language={isPrompt ? 'plaintext' : 'json'}
-              theme="vs-dark"
+              theme={monacoTheme}
               value={text}
               onChange={(val) => setText(val ?? '')}
               options={{

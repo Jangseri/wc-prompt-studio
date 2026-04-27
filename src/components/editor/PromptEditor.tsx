@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
+import { useTheme } from 'next-themes'
 import { PromptForm } from './PromptForm'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExpandModal } from './ExpandModal'
@@ -48,6 +49,8 @@ const ExpandIcon = () => (
 )
 
 export function PromptEditor({ item, isCreateMode = false, defaultCompanySeq = '', onSaved, onCreated, onDeleted, codeNames = {}, llmConfigMap = {}, svcGroups = [], prmtGroups = [] }: PromptEditorProps) {
+  const { resolvedTheme } = useTheme()
+  const monacoTheme = resolvedTheme === 'light' ? 'vs' : 'vs-dark'
   const [originalData, setOriginalData] = useState<EditableFields | null>(null)
   const [formData, setFormData] = useState<EditableFields>({
     company_seq: '',
@@ -304,7 +307,7 @@ export function PromptEditor({ item, isCreateMode = false, defaultCompanySeq = '
                 <MonacoEditor
                   height="100%"
                   language="plaintext"
-                  theme="vs-dark"
+                  theme={monacoTheme}
                   value={formData.prompt}
                   onChange={(val) => handleFieldChange('prompt', val ?? '')}
                   data-testid="prompt"
@@ -348,7 +351,7 @@ export function PromptEditor({ item, isCreateMode = false, defaultCompanySeq = '
                 <MonacoEditor
                   height="100%"
                   language="json"
-                  theme="vs-dark"
+                  theme={monacoTheme}
                   value={formData.json_schema ?? ''}
                   onChange={(val) => handleFieldChange('json_schema', val || null)}
                   data-testid="json-schema"

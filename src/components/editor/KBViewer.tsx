@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
+import { useTheme } from 'next-themes'
 import { fetchKBContent } from '@/lib/kb-api'
 import type { KBItem } from '@/types/editor'
 
@@ -15,6 +16,8 @@ export function KBViewer({ item }: KBViewerProps) {
   const [content, setContent] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { resolvedTheme } = useTheme()
+  const monacoTheme = resolvedTheme === 'light' ? 'vs' : 'vs-dark'
 
   useEffect(() => {
     if (!item) {
@@ -113,7 +116,7 @@ export function KBViewer({ item }: KBViewerProps) {
               height="100%"
               defaultLanguage="plaintext"
               value={content ?? ''}
-              theme="vs-dark"
+              theme={monacoTheme}
               options={{
                 readOnly: true,
                 minimap: { enabled: false },
