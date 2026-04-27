@@ -79,6 +79,13 @@ interface WorkspaceState {
 
   /* ── Navigation ── */
   currentStep: StepId;
+  /**
+   * Highest step index the user has reached during this workflow.
+   * Used to keep already-visited steps clickable in the workflow nav
+   * even after the user navigates back to an earlier step. Resets to
+   * 0 on a fresh workflow.
+   */
+  maxVisitedStepIndex: number;
 }
 
 interface WorkspaceActions {
@@ -154,6 +161,7 @@ const INITIAL_STATE: WorkspaceState = {
   existingPromptsByService: null,
 
   currentStep: "setup",
+  maxVisitedStepIndex: 0,
 };
 
 function canAdvanceFromStep(state: WorkspaceState, step: StepId): boolean {
@@ -235,13 +243,24 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   setExistingPromptsByService: (existingPromptsByService) =>
     set({ existingPromptsByService }),
 
-  setStep: (currentStep) => set({ currentStep }),
+  setStep: (currentStep) =>
+    set((state) => ({
+      currentStep,
+      maxVisitedStepIndex: Math.max(
+        state.maxVisitedStepIndex,
+        STEP_ORDER.indexOf(currentStep)
+      ),
+    })),
 
   goNext: () => {
     const { currentStep } = get();
     const idx = STEP_ORDER.indexOf(currentStep);
     if (idx >= 0 && idx < STEP_ORDER.length - 1) {
-      set({ currentStep: STEP_ORDER[idx + 1] });
+      const nextIdx = idx + 1;
+      set((state) => ({
+        currentStep: STEP_ORDER[nextIdx],
+        maxVisitedStepIndex: Math.max(state.maxVisitedStepIndex, nextIdx),
+      }));
     }
   },
 
@@ -249,6 +268,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     const { currentStep } = get();
     const idx = STEP_ORDER.indexOf(currentStep);
     if (idx > 0) {
+      // No need to update maxVisitedStepIndex when stepping back —
+      // the previous step's index is by definition <= the current
+      // max, and Math.max() would be a no-op anyway.
       set({ currentStep: STEP_ORDER[idx - 1] });
     }
   },

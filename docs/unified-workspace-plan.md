@@ -1,5 +1,29 @@
 # wc-prompt-studio 통합 워크스페이스 리디자인 플랜
 
+> **상태 (2026-04-27 · 브랜치 `feat/unified-workspace`, main 미머지)**
+>
+> **§8 9개 단계 모두 완료 + 후속 리파이먼트 진행 중**. 본문은 원안 그대로 보존(설계 의사결정 이력). 현재 상태와 차이는 아래 박스로 갈음.
+>
+> **이미 적용된 사항**
+> - `/studio` → `/` 스왑 완료 (`a92c318`), `/legacy` 보존
+> - 형제 기본값(PA4000/PA1000/PC1000): 실제 prompt + json_schema 적용 (`35583b9`)
+> - 적용 정책: 본문은 upsert 기반이었으나 **strict no-overwrite 로 변경** — Setup·Source·Apply 3중 pre-check, 위반 시 HTTP 409 (`ExistingPromptsError`). 형제도 INSERT IGNORE 가 아닌 plain INSERT.
+> - 업종별 svc_cd: `INDUSTRY_SVC_CD_OVERRIDES` (callbot+병원 → SA1200) 추가, `resolveChannelCode(channel, industry)` 헬퍼 사용
+> - 이미지 분석: 본문은 OpenAI gpt-4o vision 단일이었으나 **Gemini 2.5-flash → OpenAI gpt-5 자동 fallback** 으로 이중화 (`src/lib/gemini.ts`, `src/lib/openai-vision.ts`)
+> - 테마: 본문은 라이트 우선이었으나 **next-themes 다크 기본 + 헤더 토글** 로 변경. 시맨틱 토큰(HSL) 라이트/다크 양쪽 정의.
+> - 워크플로 리파이먼트: Setup 컨텍스트 sticky 바, System/STT-TTS 잠금 패턴, Branching steps (topLevelRules + ordered steps with ↑↓), Custom region, autosize textarea, maxVisitedStepIndex 로 visited 단계 자유 점프
+> - 회사명 표시: `COMPANY_INFO_URL` 프록시(`/api/company-info`) + `useCompanyNamesStore` 캐시(N=5 동시 fetch)
+> - 로깅: server file logger (`logs/app-YYYY-MM-DD.log`) — 9+ route 가 console.error → logger.error
+> - 테스트: 158개 단위 테스트 통과
+>
+> **유보(범위 밖, 별도 작업)**
+> - §7 유보 항목 일부는 결정됨(strict no-overwrite, 형제 미보존, 업종별 svc_cd). 나머지(인증/권한, a11y 감사, 회사 리스트 가상화, 관측성)는 그대로.
+>
+> **현재 작업**
+> - 빌드 준비 + 푸시 단계. main 머지 시점은 사용자 결정.
+
+---
+
 ## 재개(Pickup) 체크리스트
 
 내일 이후 구현을 시작할 때 이 섹션부터 확인.

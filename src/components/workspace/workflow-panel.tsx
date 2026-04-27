@@ -42,6 +42,7 @@ const STEP_META: Record<
 export function WorkflowPanel() {
   const currentStep = useWorkspaceStore((s) => s.currentStep);
   const setStep = useWorkspaceStore((s) => s.setStep);
+  const maxVisitedStepIndex = useWorkspaceStore((s) => s.maxVisitedStepIndex);
   const companySeq = useWorkspaceStore((s) => s.companySeq);
   const aiStaffSeq = useWorkspaceStore((s) => s.aiStaffSeq);
   const channel = useWorkspaceStore((s) => s.channel);
@@ -52,21 +53,24 @@ export function WorkflowPanel() {
 
   const currentIdx = STEP_ORDER.indexOf(currentStep);
 
+  // "Done" reflects either (a) the step's required data is filled, or
+  // (b) the user has at least visited the step in this workflow. Using
+  // the max-visited cursor lets earlier steps stay clickable after the
+  // user navigates back.
   const isDone = (step: StepId): boolean => {
+    const stepIdx = STEP_ORDER.indexOf(step);
+    const visited = stepIdx <= maxVisitedStepIndex && step !== currentStep;
     switch (step) {
       case "setup":
         return companySeq.trim().length > 0 && aiStaffSeq.trim().length > 0;
       case "source":
         return (
-          // Consider done only once user has moved past it
-          STEP_ORDER.indexOf(currentStep) > STEP_ORDER.indexOf("source") &&
-          channel !== null &&
-          industry.trim().length > 0
+          visited && channel !== null && industry.trim().length > 0
         );
       case "analysis":
         return parsedText.length > 0 && draftGenerated;
       case "regions":
-        return STEP_ORDER.indexOf(currentStep) > STEP_ORDER.indexOf("regions");
+        return visited;
       case "apply":
         return applyStatus === "success";
     }
@@ -84,16 +88,16 @@ export function WorkflowPanel() {
       {STEP_ORDER.map((id, idx) => {
         const meta = STEP_META[id];
         const stepIdx = STEP_ORDER.indexOf(id);
+        const visited = stepIdx <= maxVisitedStepIndex;
         let status: "current" | "done" | "pending";
         if (id === currentStep) status = "current";
-        else if (isDone(id)) status = "done";
-        else if (stepIdx < currentIdx) status = "done";
+        else if (isDone(id) || visited) status = "done";
         else status = "pending";
 
-        // Pending (not-yet-reached) steps cannot be jumped to directly —
-        // the user must complete the current step first. "done" steps
-        // stay clickable so they can navigate back to review/edit.
-        const canJumpHere = status !== "pending";
+        // Any step the user has reached in this workflow stays
+        // clickable so they can hop back-and-forth freely. Only
+        // never-visited future steps are gated.
+        const canJumpHere = visited;
 
         return (
           <StepCard

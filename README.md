@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# wc-prompt-studio
 
-## Getting Started
+AI 콜봇/챗봇용 프롬프트를 자동 생성·정형화·DB 저장까지 한 화면에서 처리하는 사내 도구.
 
-First, run the development server:
+- 업로드한 고객사 자료(xlsx + 이미지)를 LLM이 8개 영역(role/persona/system/conversation/branching/toolCalling/custom/answerScope)으로 정형화
+- 채널(콜봇/챗봇) × 업종(병원/일반)에 맞춰 `cstm_prmt_info` 테이블에 메인 + 형제 3개(PA4000/PA1000/PC1000)를 한 트랜잭션에 저장
+- 회사별 적용 현황을 좌측 사이드바에서 관리(편집·상태 토글·삭제)
+
+## Quick Start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# 의존성 설치
+npm install
+
+# 개발 서버 (이 워크스테이션은 Turbopack 패닉 → --webpack 플래그 필수)
+npm run dev -- --webpack
+
+# 빌드 / 프로덕션
+npm run build
+npm run start
+
+# 테스트
+npm run test           # vitest 단위
+npm run test:e2e       # Playwright (Chromium)
+npm run lint
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`http://localhost:3000` 에서 접속.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 환경 변수 (`.env.local`)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# OpenAI — 텍스트 생성 + Gemini 실패 시 vision fallback
+OPENAI_API_KEY=sk-...
 
-## Learn More
+# Gemini — vision (이미지 분석) 1순위
+GEMINI_API_KEY=AIza...
 
-To learn more about Next.js, take a look at the following resources:
+# 사내 MySQL
+DB_HOST=192.168.220.222
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=...
+DB_NAME=orchestrator
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# 사내 KB / Orchestrator
+ORCHESTRATOR_URL=http://192.168.220.222:9002
+COMPANY_INFO_URL=http://192.168.220.222:3030
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+미설정 시 `src/lib/db.ts` 가 fallback 값으로 동작 (개발 편의).
 
-## Deploy on Vercel
+## 라우트 구조
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| 경로 | 설명 |
+|---|---|
+| `/` | **통합 워크스페이스** (3열: 회사 사이드바 / 5단계 워크플로 / Preview·Chat·KB) |
+| `/legacy` | 구 3탭 UI (자동 생성 / 정형화 / DB 관리) — 회귀 비교용 보존 |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 주요 흐름
+
+1. **Setup**: `company_seq` + `ai_staff_seq` 입력 → 기존 적용 프롬프트 svc_cd별 pre-check
+2. **Source**: xlsx/이미지 업로드 + 채널(콜봇/챗봇) + 업종(병원/일반) 선택
+3. **Analysis**: Excel 텍스트 + Gemini 이미지 분석(실패 시 OpenAI gpt-5 자동 fallback) → 8영역 초안 자동 생성
+4. **Regions**: 영역별 폼 편집 (System/Conversation 룰 잠금, Branching 단계 ↑↓, Custom 섹션, Tool Calling 비활성)
+5. **Apply**: strict no-overwrite 트랜잭션 (대상 4행 중 하나라도 존재하면 409). 적용 후 사이드바 갱신.
+
+## 더 자세한 정보
+
+- 기술 스택 + 의사결정: [`STACK.md`](./STACK.md)
+- 통합 워크스페이스 설계 원안 + 현재 진행 상태: [`docs/unified-workspace-plan.md`](./docs/unified-workspace-plan.md)
+- Next.js 16 주의사항: [`AGENTS.md`](./AGENTS.md)

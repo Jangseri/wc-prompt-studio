@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { openai } from "@/lib/openai";
+import { analyzeImageWithGemini } from "@/lib/gemini";
 import { IMAGE_ANALYSIS_PROMPT } from "@/lib/system-prompt";
 import { logger } from "@/lib/logger";
 
@@ -8,28 +8,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { image, mimeType } = body;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0.1,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: IMAGE_ANALYSIS_PROMPT },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${mimeType || "image/png"};base64,${image}`,
-                detail: "high",
-              },
-            },
-          ],
-        },
-      ],
-      max_tokens: 4096,
+    const description = await analyzeImageWithGemini({
+      base64: image,
+      mimeType: mimeType || "image/png",
+      prompt: IMAGE_ANALYSIS_PROMPT,
     });
-
-    const description = response.choices[0]?.message?.content ?? "";
 
     return NextResponse.json({ description });
   } catch (err) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseExcel } from "@/lib/excel-parser";
 import { extractImagesFromXlsx } from "@/lib/image-extractor";
-import { openai } from "@/lib/openai";
+import { analyzeImageWithGemini } from "@/lib/gemini";
 import { IMAGE_ANALYSIS_PROMPT } from "@/lib/system-prompt";
 import { logger } from "@/lib/logger";
 
@@ -28,33 +28,15 @@ export async function POST(req: NextRequest) {
         const { textContent } = await parseExcel(buffer);
         combinedText += textContent + "\n";
 
-        // Extract images from Excel
+        // Extract images from Excel and analyze each via Gemini Vision
         const images = await extractImagesFromXlsx(buffer);
-
-        // Analyze images with GPT-4 Vision
         for (const img of images) {
           try {
-            const response = await openai.chat.completions.create({
-              model: "gpt-4o",
-              temperature: 0.1,
-              messages: [
-                {
-                  role: "user",
-                  content: [
-                    { type: "text", text: IMAGE_ANALYSIS_PROMPT },
-                    {
-                      type: "image_url",
-                      image_url: {
-                        url: `data:${img.mimeType};base64,${img.base64}`,
-                        detail: "high",
-                      },
-                    },
-                  ],
-                },
-              ],
-              max_tokens: 4096,
+            const desc = await analyzeImageWithGemini({
+              base64: img.base64,
+              mimeType: img.mimeType,
+              prompt: IMAGE_ANALYSIS_PROMPT,
             });
-            const desc = response.choices[0]?.message?.content;
             if (desc) imageDescriptions.push(desc);
           } catch (err) {
             logger.error("[upload] image analysis failed", err);
@@ -70,24 +52,11 @@ export async function POST(req: NextRequest) {
         const mimeType = file.type || "image/png";
 
         try {
-          const response = await openai.chat.completions.create({
-            model: "gpt-4o",
-            temperature: 0.1,
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: IMAGE_ANALYSIS_PROMPT },
-                  {
-                    type: "image_url",
-                    image_url: { url: `data:${mimeType};base64,${base64}`, detail: "high" },
-                  },
-                ],
-              },
-            ],
-            max_tokens: 4096,
+          const desc = await analyzeImageWithGemini({
+            base64,
+            mimeType,
+            prompt: IMAGE_ANALYSIS_PROMPT,
           });
-          const desc = response.choices[0]?.message?.content;
           if (desc) imageDescriptions.push(desc);
         } catch (err) {
           logger.error("[upload] image analysis failed", err);
