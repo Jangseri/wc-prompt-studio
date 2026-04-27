@@ -65,6 +65,40 @@ function createMockClient() {
   };
 }
 
-export const openai = mockMode
-  ? (createMockClient() as unknown as OpenAI)
-  : new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+/**
+ * Lazy-init OpenAI client.
+ *
+ * Constructing `new OpenAI(...)` at module load throws if
+ * OPENAI_API_KEY is missing. That kills `next build` during page-data
+ * collection (the build container doesn't see compose's env_file —
+ * that's runtime-only). Same risk for any other env where the key is
+ * deliberately absent at import time.
+ *
+ * Solution: defer construction until the first property access. The
+ * exported `openai` is a Proxy that materialises the real client on
+ * demand, then forwards every property access to it. Call sites
+ * (`openai.chat.completions.create(...)`) work unchanged.
+ */
+let cached: OpenAI | null = null;
+
+function getClient(): OpenAI {
+  if (cached) return cached;
+  if (mockMode) {
+    cached = createMockClient() as unknown as OpenAI;
+    return cached;
+  }
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "OPENAI_API_KEY is not set. Add it to .env.local (or your deployment env)."
+    );
+  }
+  cached = new OpenAI({ apiKey });
+  return cached;
+}
+
+export const openai = new Proxy({} as OpenAI, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getClient(), prop, receiver);
+  },
+});
