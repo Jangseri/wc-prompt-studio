@@ -69,7 +69,21 @@ vi .env
 - `DB_PASSWORD` — MySQL `orchestrator` DB
 - 나머지는 `.env.production.example` 의 default 값 그대로 사용
 
-### 4. 빌드 + 실행
+### 4. 로그 디렉터리 사전 생성 (권한 충돌 방지)
+
+`docker compose` 가 `./logs` 를 자동 생성하면 **root 소유**가 되어, 컨테이너의
+`1007:1009` 유저가 쓰지 못합니다 (logger 가 silent fail). 미리 만들고 소유자
+지정.
+
+```bash
+mkdir -p logs
+chown 1007:1009 logs
+# (이미 root 소유로 만들어진 상태면 sudo chown -R 1007:1009 logs)
+```
+
+> UID/GID 는 `docker-compose.yml` 의 `user:` 값과 같아야 합니다.
+
+### 5. 빌드 + 실행
 
 ```bash
 docker compose up -d --build
@@ -80,7 +94,7 @@ docker compose logs -f
 
 빌드는 multi-stage Dockerfile 기준 **3–6분** 걸립니다 (deps → build → runner).
 
-### 5. 동작 확인
+### 6. 동작 확인
 
 ```bash
 # 헬스체크
@@ -174,7 +188,27 @@ docker compose logs wc-prompt-studio
 - `.env` 파일 없음 → `cp .env.production.example .env` 후 채우기
 - DB 접속 실패 → `DB_HOST`/`DB_PASSWORD` 확인, `192.168.220.222:3306` 방화벽 확인
 - 포트 7999 이미 사용 중 → `docker-compose.yml` 의 `ports` 변경
-- 볼륨 권한 문제 → `sudo chown -R 1007:1012 logs/` (또는 compose 의 `user:` 값에 맞춰)
+- 볼륨 권한 문제 → `sudo chown -R 1007:1009 logs/` (또는 compose 의 `user:` 값에 맞춰)
+
+### 로그 파일이 안 쌓임
+
+먼저 logger 가 호출됐는지 확인. 우리 logger 는 거의 `error` / `warn` 만 쓰므로
+**평소 정상 동작 중엔 logs/ 가 비어있는 게 정상**입니다. 의심되면 강제 트리거:
+
+```bash
+# 빈 multipart 업로드 → /api/upload catch → logger.error
+curl -i -X POST http://localhost:7999/api/upload
+ls -la logs/                                   # app-YYYY-MM-DD.log 생기면 정상
+tail logs/app-$(date +%Y-%m-%d).log
+```
+
+위 호출 후에도 파일이 안 생기면 **권한 문제**:
+
+```bash
+ls -la logs/                                   # 소유자가 root 면 원인 확정
+sudo chown -R 1007:1009 logs/
+docker compose restart
+```
 
 ### 이미지 분석 실패
 
