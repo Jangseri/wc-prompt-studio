@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type GenerationConfig } from "@google/generative-ai";
 import { analyzeImageWithOpenAI } from "./openai-vision";
 import { logger, withLog } from "./logger";
 
@@ -63,10 +63,20 @@ export async function analyzeImageWithGemini(
         const client = getClient();
         const m = client.getGenerativeModel({
           model,
+          // Gemini 2.5 series are *thinking* models — by default the
+          // model burns "thoughts" tokens (counted in the same budget
+          // as visible output) before producing the answer. For pure
+          // OCR/extraction work that's wasted budget; we observed
+          // thoughtsTokenCount=3696 vs candidatesTokenCount=396 hitting
+          // the 4096 cap and truncating mid-answer. `thinkingBudget: 0`
+          // disables it so the full budget goes to the visible answer.
+          // The field isn't in `@google/generative-ai` 0.24.1 types yet
+          // but passes through to the REST API.
           generationConfig: {
             temperature: 0.1,
             maxOutputTokens: 4096,
-          },
+            thinkingConfig: { thinkingBudget: 0 },
+          } as unknown as GenerationConfig,
         });
 
         const result = await m.generateContent([
