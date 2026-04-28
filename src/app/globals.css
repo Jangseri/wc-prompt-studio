@@ -119,19 +119,26 @@ body {
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
+  cursor: default;
 }
 
 ::-webkit-scrollbar-track {
   background: transparent;
+  cursor: default;
 }
 
 ::-webkit-scrollbar-thumb {
   background: hsl(var(--border));
   border-radius: 3px;
+  cursor: default;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
+}
+
+::-webkit-scrollbar-corner {
+  cursor: default;
 }
 
 .transition-smooth {
