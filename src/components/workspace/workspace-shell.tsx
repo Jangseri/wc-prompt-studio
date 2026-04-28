@@ -95,7 +95,7 @@ function WorkflowContextSummary() {
     parts.push(
       <span key="company">
         <span className="text-muted-foreground">company</span>{" "}
-        <span className="font-mono text-foreground/80">{companySeq}</span>
+        <span className="font-mono font-semibold text-foreground">{companySeq}</span>
       </span>
     );
   }
@@ -103,20 +103,20 @@ function WorkflowContextSummary() {
     parts.push(
       <span key="staff">
         <span className="text-muted-foreground">staff</span>{" "}
-        <span className="font-mono text-foreground/80">{aiStaffSeq}</span>
+        <span className="font-mono font-semibold text-foreground">{aiStaffSeq}</span>
       </span>
     );
   }
   if (channel) {
     parts.push(
-      <span key="channel" className="text-foreground/80">
+      <span key="channel" className="font-semibold text-foreground">
         {channel === "callbot" ? "콜봇" : "챗봇"}
       </span>
     );
   }
   if (industry.trim()) {
     parts.push(
-      <span key="industry" className="text-foreground/80">
+      <span key="industry" className="font-semibold text-foreground">
         {industry}
       </span>
     );
@@ -125,10 +125,10 @@ function WorkflowContextSummary() {
   if (parts.length === 0) return null;
 
   return (
-    <div className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
+    <div className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
       {parts.map((part, i) => (
         <Fragment key={i}>
-          {i > 0 && <span className="text-muted-foreground/50">·</span>}
+          {i > 0 && <span className="text-muted-foreground/70">·</span>}
           {part}
         </Fragment>
       ))}

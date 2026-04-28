@@ -13,7 +13,9 @@ export function ChatInput() {
   const {
     addChatMessage,
     updateLastAssistantMessage,
-    prompt,
+    // Chat 으로 보내는 system prompt 와 인사말은 publish 된 스냅샷
+    // 기준. Regions 의 라이브 편집은 적용 전까진 chat 응답에 영향 X.
+    publishedPrompt: prompt,
     targetLLM,
     chatMessages,
     chatSettings,

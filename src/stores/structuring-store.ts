@@ -67,6 +67,15 @@ const ALL_REGIONS: RegionId[] = [
 
 interface StructuringStore {
   prompt: StructuringPrompt;
+  /**
+   * 소비자(Preview, Chat, Apply)에게 노출되는 스냅샷. Regions 에서
+   * 편집하는 동안 `prompt` 와 갈라져 있다가, "적용" 버튼이
+   * `applyDraft()` 를 호출하면 `prompt` 를 그대로 가져와 같은 ref 로
+   * 맞춤. dirty 감지는 `prompt !== publishedPrompt` 의 reference
+   * equality 로 — region updater 는 모두 spread 로 새 객체를 만들고,
+   * `applyDraft` 와 `setAll` 만 두 필드를 같은 ref 로 맞추기 때문.
+   */
+  publishedPrompt: StructuringPrompt;
   expandedRegions: Set<RegionId>;
   targetLLM: TargetLLM;
 
@@ -91,6 +100,9 @@ interface StructuringStore {
   ) => void;
   /** Replace the entire prompt payload (used when /api/generate mode=regions returns a draft). */
   setAll: (prompt: StructuringPrompt) => void;
+  /** 현재 `prompt` 를 `publishedPrompt` 로 복사해서 Preview/Chat/Apply
+   *  에 반영. 변경 없으면 no-op. */
+  applyDraft: () => void;
   toggleRegion: (id: RegionId) => void;
   expandAll: () => void;
   collapseAll: () => void;
@@ -126,6 +138,7 @@ interface StructuringStore {
 
 export const useStructuringStore = create<StructuringStore>((set, get) => ({
   prompt: emptyPrompt(),
+  publishedPrompt: emptyPrompt(),
   expandedRegions: new Set<RegionId>(),
   targetLLM: "gpt",
 
@@ -159,11 +172,17 @@ export const useStructuringStore = create<StructuringStore>((set, get) => ({
       prompt: { ...state.prompt, [id]: updater(state.prompt[id]) },
     })),
 
+  // 초안 생성 직후엔 dirty 가 아니어야 하므로 prompt 와 publishedPrompt
+  // 를 같은 ref 로 맞춰서 시작.
   setAll: (prompt) =>
     set({
       prompt,
+      publishedPrompt: prompt,
       expandedRegions: new Set<RegionId>(DEFAULT_EXPANDED_REGIONS),
     }),
+
+  applyDraft: () =>
+    set((state) => ({ publishedPrompt: state.prompt })),
 
   toggleRegion: (id) =>
     set((state) => {
@@ -359,10 +378,13 @@ export const useStructuringStore = create<StructuringStore>((set, get) => ({
       };
     }),
 
-  reset: () =>
+  reset: () => {
+    const fresh = emptyPrompt();
     set({
-      prompt: emptyPrompt(),
+      prompt: fresh,
+      publishedPrompt: fresh,
       expandedRegions: new Set<RegionId>(),
       chatMessages: [],
-    }),
+    });
+  },
 }));

@@ -109,7 +109,9 @@ export function PreviewChatPanel() {
 }
 
 function PreviewTab() {
-  const prompt = useStructuringStore((s) => s.prompt);
+  // Regions 의 라이브 편집 상태가 아니라 "적용" 으로 publish 된
+  // 스냅샷을 읽는다. 사용자가 적용 버튼을 누르기 전까진 미반영.
+  const prompt = useStructuringStore((s) => s.publishedPrompt);
   const targetLLM = useStructuringStore((s) => s.targetLLM);
   const setTargetLLM = useStructuringStore((s) => s.setTargetLLM);
   const [copied, setCopied] = useState(false);
@@ -188,7 +190,8 @@ function PreviewTab() {
 }
 
 function ChatTab() {
-  const prompt = useStructuringStore((s) => s.prompt);
+  // PreviewTab 과 마찬가지로 publishedPrompt 를 봄.
+  const prompt = useStructuringStore((s) => s.publishedPrompt);
   const targetLLM = useStructuringStore((s) => s.targetLLM);
   const chatMessages = useStructuringStore((s) => s.chatMessages);
   const clearChat = useStructuringStore((s) => s.clearChat);

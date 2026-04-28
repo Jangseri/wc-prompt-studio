@@ -35,10 +35,9 @@ export function SourceStep() {
       industry !== ""
   );
 
-  // Wrap setSourceFiles so we can notify the user when the change wipes
-  // a previous analysis. We pull state via getState() rather than store
-  // hooks to avoid re-rendering this component every time the analysis
-  // data changes.
+  // setSourceFiles 호출이 이전 분석을 날릴 때 사용자에게 알리기 위해
+  // 래핑. 분석 상태가 바뀔 때마다 이 컴포넌트가 리렌더되는 걸 피하려고
+  // store hook 대신 getState() 로 즉시 조회.
   const handleFilesChange = useCallback(
     (files: File[]) => {
       const prev = useWorkspaceStore.getState();
@@ -193,7 +192,7 @@ export function SourceStep() {
       <StepNav
         onPrev={goPrev}
         onNext={goNext}
-        nextLabel="Analysis"
+        nextLabel="Next"
         nextDisabled={!canAdvance}
         nextDisabledHint={
           conflict

@@ -28,7 +28,10 @@ export function ApplyStep() {
   const setStep = useWorkspaceStore((s) => s.setStep);
   const setChannel = useWorkspaceStore((s) => s.setChannel);
   const structuringReset = useStructuringStore((s) => s.reset);
-  const structuringPrompt = useStructuringStore((s) => s.prompt);
+  // 저장은 publish 된 스냅샷 기준. Regions 에서 적용 안 한 라이브
+  // 편집은 일부러 무시 — 사용자가 의도적으로 이전 버전을 저장하려는
+  // 케이스를 허용하기 위함.
+  const structuringPrompt = useStructuringStore((s) => s.publishedPrompt);
   const targetLLM = useStructuringStore((s) => s.targetLLM);
   const { getCodeName } = useCodeNames();
 

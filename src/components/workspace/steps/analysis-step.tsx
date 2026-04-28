@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -11,12 +11,19 @@ import {
   EyeOff,
   Eye,
   AlertTriangle,
+  Maximize2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useStructuringStore } from "@/stores/structuring-store";
 import { StepNav } from "../step-nav";
+import { ExpandModal } from "../expand-modal";
 import type { StructuringPrompt } from "@/types/structuring";
+
+// 어떤 카드를 풀화면으로 띄울지 식별. text 는 단일이라 인덱스 없음.
+type ExpandTarget =
+  | { kind: "text" }
+  | { kind: "image"; index: number };
 
 const PRIMARY_PILL_BTN =
   "group inline-flex shrink-0 items-center gap-2 rounded-full px-5 py-2 text-sm font-medium shadow-sm transition-all " +
@@ -58,15 +65,18 @@ export function AnalysisStep() {
 
   const setStructuringAll = useStructuringStore((s) => s.setAll);
 
+  // 풀화면 미리보기 모달 — 엑셀 텍스트 또는 특정 이미지 분석 결과.
+  const [expanded, setExpanded] = useState<ExpandTarget | null>(null);
+
   const canAnalyze = sourceFiles.length > 0 && !isParsing;
   const effectiveText = textExcluded ? "" : parsedText;
   const includedImages = imageDescriptions.filter(
     (_, i) => !excludedImageIndices.includes(i)
   );
   const hasInput = effectiveText.length > 0 || includedImages.length > 0;
-  // Image-only uploads (or text-empty xlsx) leave parsedText === "" yet
-  // still produce imageDescriptions. Use this combined signal anywhere
-  // we want to mean "analysis has run and produced something".
+  // 이미지만 업로드(또는 텍스트 없는 xlsx) 한 경우 parsedText 는 빈
+  // 문자열이지만 imageDescriptions 는 채워짐. "분석이 실행되어 결과가
+  // 있다" 를 의미하려면 두 신호를 합쳐서 봐야 함.
   const hasAnalyzed = parsedText.length > 0 || imageDescriptions.length > 0;
   // Once a draft is generated, the generate button is disabled so users
   // don't accidentally trigger a second (paid) LLM call. Re-generation
@@ -278,6 +288,16 @@ export function AnalysisStep() {
                 >
                   엑셀 텍스트
                 </p>
+                <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setExpanded({ kind: "text" })}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-muted-foreground transition-smooth hover:bg-muted hover:text-foreground"
+                  aria-label="전체화면으로 보기"
+                >
+                  <Maximize2 className="h-3 w-3" />
+                  확장
+                </button>
                 <button
                   type="button"
                   onClick={() => setTextExcluded(!textExcluded)}
@@ -298,6 +318,7 @@ export function AnalysisStep() {
                     </>
                   )}
                 </button>
+                </div>
               </div>
               {!textExcluded && (
                 <textarea
@@ -352,6 +373,18 @@ export function AnalysisStep() {
                             </span>
                           )}
                         </div>
+                        <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpanded({ kind: "image", index: idx })
+                          }
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] text-muted-foreground transition-smooth hover:bg-muted hover:text-foreground"
+                          aria-label="전체화면으로 보기"
+                        >
+                          <Maximize2 className="h-3 w-3" />
+                          확장
+                        </button>
                         <button
                           type="button"
                           onClick={() => toggleExcludedImage(idx)}
@@ -372,6 +405,7 @@ export function AnalysisStep() {
                             </>
                           )}
                         </button>
+                        </div>
                       </div>
                       {!isExcluded && (
                         <textarea
@@ -458,10 +492,26 @@ export function AnalysisStep() {
       <StepNav
         onPrev={goPrev}
         onNext={goNext}
-        nextLabel="Regions"
+        nextLabel="Next"
         nextDisabled={!canAdvance}
         nextDisabledHint="파일 분석과 초안 생성을 먼저 완료하세요"
       />
+
+      {expanded && (
+        <ExpandModal
+          title={
+            expanded.kind === "text"
+              ? "엑셀 텍스트"
+              : `이미지 ${expanded.index + 1} 분석`
+          }
+          content={
+            expanded.kind === "text"
+              ? parsedText
+              : (imageDescriptions[expanded.index] ?? "")
+          }
+          onClose={() => setExpanded(null)}
+        />
+      )}
     </div>
   );
 }

@@ -7,7 +7,9 @@ import { useStructuringStore } from "@/stores/structuring-store";
 
 export function ChatWindow() {
   const chatMessages = useStructuringStore((s) => s.chatMessages);
-  const greeting = useStructuringStore((s) => s.prompt.companyInfo.greeting);
+  // Chat 에 보이는 인사말은 publish 된 스냅샷 기준. Regions 에서
+  // 인사말을 수정해도 "적용" 누르기 전까진 여기 안 바뀜.
+  const greeting = useStructuringStore((s) => s.publishedPrompt.companyInfo.greeting);
   const isChatLoading = useStructuringStore((s) => s.isChatLoading);
   const scrollRef = useRef<HTMLDivElement>(null);
 

@@ -144,7 +144,7 @@ export function SetupStep() {
 
       <StepNav
         onNext={goNext}
-        nextLabel="Source"
+        nextLabel="Next"
         nextDisabled={!canAdvance}
         nextDisabledHint="company와 staff를 모두 입력하세요"
       />
