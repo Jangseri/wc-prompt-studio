@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Ban } from "lucide-react";
+import { toast } from "sonner";
 import { resolveChannelCode, type Channel } from "@/lib/prompt-codes";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { WorkspaceFileDropzone } from "../workspace-file-dropzone";
@@ -34,6 +35,27 @@ export function SourceStep() {
       industry !== ""
   );
 
+  // Wrap setSourceFiles so we can notify the user when the change wipes
+  // a previous analysis. We pull state via getState() rather than store
+  // hooks to avoid re-rendering this component every time the analysis
+  // data changes.
+  const handleFilesChange = useCallback(
+    (files: File[]) => {
+      const prev = useWorkspaceStore.getState();
+      const hadAnalysis =
+        prev.parsedText.length > 0 ||
+        prev.imageDescriptions.length > 0 ||
+        prev.draftGenerated;
+      setSourceFiles(files);
+      if (hadAnalysis) {
+        toast.info(
+          "파일이 변경되어 이전 분석을 초기화했습니다. Analysis에서 다시 실행하세요."
+        );
+      }
+    },
+    [setSourceFiles]
+  );
+
   // Compute the resolved svc_cd for the currently-picked (channel, industry)
   // pair; if it already has existing rows, surface an inline block.
   const conflict = useMemo(() => {
@@ -52,7 +74,7 @@ export function SourceStep() {
         </label>
         <WorkspaceFileDropzone
           files={sourceFiles}
-          onChange={setSourceFiles}
+          onChange={handleFilesChange}
           disabled={isParsing}
         />
       </div>

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { resolveChannelCode, type Channel } from "@/lib/prompt-codes";
+import { useStructuringStore } from "./structuring-store";
 
 /**
  * Center-panel mode.
@@ -188,7 +189,13 @@ function canAdvanceFromStep(state: WorkspaceState, step: StepId): boolean {
       return true;
     }
     case "analysis":
-      return state.parsedText.trim().length > 0 && state.draftGenerated;
+      // Image-only uploads leave parsedText empty but still produce
+      // imageDescriptions — either signal counts as "analyzed".
+      return (
+        (state.parsedText.trim().length > 0 ||
+          state.imageDescriptions.length > 0) &&
+        state.draftGenerated
+      );
     case "regions":
       return state.draftGenerated;
     case "apply":
@@ -202,7 +209,26 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   setCompanySeq: (v) => set({ companySeq: v }),
   setAiStaffSeq: (v) => set({ aiStaffSeq: v }),
 
-  setSourceFiles: (sourceFiles) => set({ sourceFiles }),
+  setSourceFiles: (sourceFiles) => {
+    // Changing the file set invalidates everything downstream of the
+    // parse: text, image descriptions, the generated draft, and the
+    // Regions structuring data. Reset all of it so the user is forced
+    // back through Analysis with the new files. Without this, Analysis
+    // would silently show stale results from the previous file set.
+    set({
+      sourceFiles,
+      parsedText: "",
+      textExcluded: false,
+      imageDescriptions: [],
+      excludedImageIndices: [],
+      parseError: null,
+      draftGenerated: false,
+      generateError: null,
+    });
+    // Cross-store: clear the Regions draft + any chat history that was
+    // tied to the previous file set's analysis.
+    useStructuringStore.getState().reset();
+  },
   setChannel: (channel) => set({ channel }),
   setIndustry: (industry) => set({ industry }),
 

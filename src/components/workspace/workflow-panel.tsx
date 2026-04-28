@@ -48,6 +48,7 @@ export function WorkflowPanel() {
   const channel = useWorkspaceStore((s) => s.channel);
   const industry = useWorkspaceStore((s) => s.industry);
   const parsedText = useWorkspaceStore((s) => s.parsedText);
+  const imageDescriptions = useWorkspaceStore((s) => s.imageDescriptions);
   const draftGenerated = useWorkspaceStore((s) => s.draftGenerated);
   const applyStatus = useWorkspaceStore((s) => s.applyStatus);
 
@@ -68,7 +69,10 @@ export function WorkflowPanel() {
           visited && channel !== null && industry.trim().length > 0
         );
       case "analysis":
-        return parsedText.length > 0 && draftGenerated;
+        return (
+          (parsedText.length > 0 || imageDescriptions.length > 0) &&
+          draftGenerated
+        );
       case "regions":
         return visited;
       case "apply":

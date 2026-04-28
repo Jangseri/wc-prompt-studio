@@ -64,6 +64,10 @@ export function AnalysisStep() {
     (_, i) => !excludedImageIndices.includes(i)
   );
   const hasInput = effectiveText.length > 0 || includedImages.length > 0;
+  // Image-only uploads (or text-empty xlsx) leave parsedText === "" yet
+  // still produce imageDescriptions. Use this combined signal anywhere
+  // we want to mean "analysis has run and produced something".
+  const hasAnalyzed = parsedText.length > 0 || imageDescriptions.length > 0;
   // Once a draft is generated, the generate button is disabled so users
   // don't accidentally trigger a second (paid) LLM call. Re-generation
   // requires re-analyzing the source file first (which resets draft).
@@ -166,7 +170,7 @@ export function AnalysisStep() {
 
       {/* Parse section */}
       <div className="space-y-3">
-        {!parsedText ? (
+        {!hasAnalyzed ? (
           <div className="flex items-center gap-4 rounded-lg border border-border/60 bg-card/40 p-4">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
               <FileText className="h-5 w-5 text-primary" />
@@ -208,7 +212,9 @@ export function AnalysisStep() {
             <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
             <h4 className="text-sm font-semibold">① 파일 분석 완료</h4>
             <span className="text-xs text-muted-foreground">
-              · {parsedText.length.toLocaleString()}자
+              {parsedText.length > 0 && (
+                <>· {parsedText.length.toLocaleString()}자</>
+              )}
               {imageDescriptions.length > 0 &&
                 ` · 이미지 ${imageDescriptions.length}개`}
             </span>
@@ -229,13 +235,18 @@ export function AnalysisStep() {
           </p>
         )}
 
-        {parsedText && (
+        {hasAnalyzed && (
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <FileText className="h-3.5 w-3.5" /> 텍스트 {parsedText.length.toLocaleString()}자
+              {parsedText.length > 0 && (
+                <>
+                  <FileText className="h-3.5 w-3.5" /> 텍스트{" "}
+                  {parsedText.length.toLocaleString()}자
+                </>
+              )}
               {imageDescriptions.length > 0 && (
                 <>
-                  <span className="mx-1">·</span>
+                  {parsedText.length > 0 && <span className="mx-1">·</span>}
                   <ImageIcon className="h-3.5 w-3.5" /> 이미지{" "}
                   {imageDescriptions.length - excludedImageIndices.length}/
                   {imageDescriptions.length}개 포함
@@ -249,6 +260,7 @@ export function AnalysisStep() {
             </div>
 
             {/* Excel text — editable, non-destructive exclude */}
+            {parsedText.length > 0 && (
             <div
               className={cn(
                 "rounded-md border bg-card/40 overflow-hidden transition-smooth",
@@ -296,6 +308,7 @@ export function AnalysisStep() {
                 />
               )}
             </div>
+            )}
 
             {/* Image descriptions — editable, per-image toggle */}
             {imageDescriptions.length > 0 && (
@@ -389,7 +402,7 @@ export function AnalysisStep() {
             <div className="min-w-0 flex-1">
               <h4 className="text-sm font-semibold">② 프롬프트 초안 생성</h4>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {!parsedText
+                {!hasAnalyzed
                   ? "먼저 ①에서 파일 분석을 실행하세요"
                   : !channel || !industry
                     ? "Source 스텝에서 채널·업종을 입력하세요"
@@ -403,7 +416,7 @@ export function AnalysisStep() {
               onClick={handleGenerate}
               disabled={!canGenerate}
               title={
-                !parsedText
+                !hasAnalyzed
                   ? "먼저 파일 분석을 실행하세요"
                   : !channel || !industry
                     ? "Source 스텝에서 채널·업종을 선택하세요"
