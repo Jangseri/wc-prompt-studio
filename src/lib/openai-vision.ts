@@ -14,7 +14,7 @@ export interface AnalyzeImageInput {
   prompt: string;
   /** Optional model override. */
   model?: string;
-  /** Request correlation ID — same one Gemini logged with. */
+  /** Gemini 가 로깅한 것과 같은 correlation ID. */
   rid?: string;
 }
 
@@ -23,9 +23,8 @@ export interface AnalyzeImageInput {
  * reply. Mirrors the shape of `analyzeImageWithGemini` so callers can
  * swap between the two without changing call sites.
  *
- * Logs `finishReason` and `usage` (including reasoning_tokens for
- * gpt-5-class reasoning models) so truncation / runaway-reasoning is
- * detectable from logs alone.
+ * finishReason 과 usage(gpt-5 reasoning_tokens 포함)를 로그에 남겨,
+ * truncation 이나 runaway reasoning 을 로그만 보고도 진단 가능.
  */
 export async function analyzeImageWithOpenAI(
   input: AnalyzeImageInput

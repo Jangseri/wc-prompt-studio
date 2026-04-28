@@ -189,8 +189,8 @@ function canAdvanceFromStep(state: WorkspaceState, step: StepId): boolean {
       return true;
     }
     case "analysis":
-      // Image-only uploads leave parsedText empty but still produce
-      // imageDescriptions — either signal counts as "analyzed".
+      // 이미지만 업로드한 경우엔 parsedText 가 빈 채로 imageDescriptions
+      // 만 채워짐. 둘 중 어느 쪽이든 있으면 "분석 완료" 로 간주.
       return (
         (state.parsedText.trim().length > 0 ||
           state.imageDescriptions.length > 0) &&
@@ -210,11 +210,10 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   setAiStaffSeq: (v) => set({ aiStaffSeq: v }),
 
   setSourceFiles: (sourceFiles) => {
-    // Changing the file set invalidates everything downstream of the
-    // parse: text, image descriptions, the generated draft, and the
-    // Regions structuring data. Reset all of it so the user is forced
-    // back through Analysis with the new files. Without this, Analysis
-    // would silently show stale results from the previous file set.
+    // 파일 셋이 바뀌면 parse 다운스트림 전체(텍스트, 이미지 설명,
+    // 초안, Regions 구성)가 무효화됨. 모두 리셋해서 사용자가 새 파일로
+    // Analysis 부터 다시 거치도록 강제. 안 하면 Analysis 가 이전
+    // 파일 셋 분석 결과를 그대로 보여줘서 stale 상태가 됨.
     set({
       sourceFiles,
       parsedText: "",
@@ -225,8 +224,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       draftGenerated: false,
       generateError: null,
     });
-    // Cross-store: clear the Regions draft + any chat history that was
-    // tied to the previous file set's analysis.
+    // 크로스-스토어: 이전 파일 셋 분석에 묶여있던 Regions 초안과
+    // 채팅 히스토리도 같이 클리어.
     useStructuringStore.getState().reset();
   },
   setChannel: (channel) => set({ channel }),

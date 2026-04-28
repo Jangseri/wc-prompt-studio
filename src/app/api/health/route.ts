@@ -4,8 +4,8 @@ import { logger } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
-// Health is polled frequently — logging every call would drown the file
-// logger. We only log on *transitions* (OK → fail or fail → OK).
+// Health 는 폴링 빈도가 높아 매번 INFO 로 찍으면 파일 로거가 잠식됨.
+// 상태 전환 시점(OK → fail, fail → OK)에만 로그를 남긴다.
 let lastWasOk: boolean | null = null
 
 export async function GET() {

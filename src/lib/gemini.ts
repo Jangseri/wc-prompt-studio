@@ -35,8 +35,8 @@ export interface AnalyzeImageInput {
   prompt: string;
   /** Optional model override. */
   model?: string;
-  /** Request correlation ID (logger.makeRequestId). Threaded through
-   *  to the OpenAI fallback so all log lines for one image stay tied. */
+  /** logger.makeRequestId() 로 만든 correlation ID. OpenAI 폴백까지
+   *  같이 넘겨서 한 이미지에 대한 로그가 같은 ID 로 묶이도록. */
   rid?: string;
 }
 
@@ -63,15 +63,15 @@ export async function analyzeImageWithGemini(
         const client = getClient();
         const m = client.getGenerativeModel({
           model,
-          // Gemini 2.5 series are *thinking* models — by default the
-          // model burns "thoughts" tokens (counted in the same budget
-          // as visible output) before producing the answer. For pure
-          // OCR/extraction work that's wasted budget; we observed
-          // thoughtsTokenCount=3696 vs candidatesTokenCount=396 hitting
-          // the 4096 cap and truncating mid-answer. `thinkingBudget: 0`
-          // disables it so the full budget goes to the visible answer.
-          // The field isn't in `@google/generative-ai` 0.24.1 types yet
-          // but passes through to the REST API.
+          // Gemini 2.5 시리즈는 thinking 모델이라 기본값에선 thoughts
+          // 토큰이 maxOutputTokens 예산을 같이 잠식한다. OCR/추출 같은
+          // 단순 작업엔 thinking 이 도움 안 됨. 실측: 한 이미지에서
+          // thoughtsTokenCount=3696 + candidatesTokenCount=396 으로
+          // 4096 cap 도달, finishReason: MAX_TOKENS 로 응답 mid-token
+          // 잘림. thinkingBudget: 0 으로 끄면 전체 예산이 visible
+          // 출력으로 감.
+          // 이 필드는 @google/generative-ai 0.24.1 의 GenerationConfig
+          // 타입엔 아직 없어서 as unknown 캐스팅 — REST API 는 정상 수신.
           generationConfig: {
             temperature: 0.1,
             maxOutputTokens: 4096,
@@ -92,9 +92,9 @@ export async function analyzeImageWithGemini(
         return result.response;
       },
       (resp) => {
-        // Extract every signal that helps tell apart the truncation
-        // modes (STOP / MAX_TOKENS / SAFETY / RECITATION) and the
-        // actual prompt-block case (promptFeedback.blockReason).
+        // truncation 종류 (STOP / MAX_TOKENS / SAFETY / RECITATION) 와
+        // 프롬프트 자체 차단(promptFeedback.blockReason) 까지 구분 가능
+        // 하도록 가능한 모든 시그널을 메타로 노출.
         const cand = resp.candidates?.[0];
         const text = (() => {
           try {

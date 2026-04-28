@@ -82,24 +82,23 @@ export const logger = {
 
 // ─── Observability helpers ─────────────────────────────────────────
 //
-// `makeRequestId` + `withLog` + `logRoute` together give every server
-// request a short correlation ID and a "start → ok | slow ok | fail"
-// trio of log lines. Calls that exceed SLOW_MS get bumped to WARN so
-// they're visible in dashboards. Status-aware logRoute also routes
-// 4xx/5xx responses to WARN/ERROR even when they don't throw.
+// makeRequestId + withLog + logRoute 셋이 짝을 이뤄, 모든 서버
+// 요청에 짧은 correlation ID 와 "start → ok | slow ok | fail"
+// 트리오 로그를 붙여준다. SLOW_MS 초과 호출은 WARN 으로 격상해서
+// 대시보드/grep 에서 눈에 띄게 함. logRoute 는 status 기반으로
+// 4xx/5xx 응답도 throw 없이 WARN/ERROR 로 라우팅.
 
 const SLOW_MS = 5000;
 
-/** Short correlation ID (not crypto-meaningful) for tying together
- *  the multiple log lines a single HTTP request produces. */
+/** 한 HTTP 요청이 만들어내는 여러 로그 라인을 묶기 위한 짧은
+ *  correlation ID. 암호학적 의미 없음. */
 export function makeRequestId(): string {
   return crypto.randomUUID().slice(0, 8);
 }
 
-/** Wrap an async I/O operation (LLM call, external fetch, DB mutation)
- *  in a start/ok/fail trio. `okMeta` extracts response-shape metadata
- *  (length, usage, …) only after success so we don't pay for it on
- *  the failure path. */
+/** 비동기 I/O 작업 한 건(LLM 호출, 외부 fetch, DB mutation 등)을
+ *  start/ok/fail 트리오로 감싼다. okMeta 는 성공 후에만 응답
+ *  메타(length, usage 등)를 뽑아서 실패 경로 비용을 줄임. */
 export async function withLog<T>(
   op: string,
   meta: Record<string, unknown>,
@@ -122,11 +121,10 @@ export async function withLog<T>(
   }
 }
 
-/** Wrap a Next.js route handler. Generates a `rid`, hands it to the
- *  handler body, and routes the final log line by HTTP status:
- *    5xx → ERROR, 4xx → WARN, slow 2xx → WARN, otherwise INFO.
- *  Use the `rid` in any sub-calls so a single request's logs can be
- *  grepped by ID. */
+/** Next.js 라우트 핸들러를 감싼다. rid 를 생성해서 핸들러 본문에
+ *  넘기고, 마지막 로그 라인을 HTTP status 기반으로 라우팅:
+ *    5xx → ERROR, 4xx → WARN, slow 2xx → WARN, 그 외 INFO.
+ *  하위 호출에 rid 를 넘기면 한 요청의 로그를 ID 로 grep 가능. */
 export async function logRoute<T extends Response>(
   op: string,
   meta: Record<string, unknown>,
