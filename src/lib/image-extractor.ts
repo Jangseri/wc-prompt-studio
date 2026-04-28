@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { logger } from "./logger";
 
 export interface ExtractedImageData {
   base64: string;
@@ -7,13 +8,17 @@ export interface ExtractedImageData {
 }
 
 export async function extractImagesFromXlsx(
-  buffer: Buffer
+  buffer: Buffer,
+  rid?: string
 ): Promise<ExtractedImageData[]> {
   const zip = await JSZip.loadAsync(buffer);
   const images: ExtractedImageData[] = [];
 
   const mediaFolder = zip.folder("xl/media");
-  if (!mediaFolder) return images;
+  if (!mediaFolder) {
+    logger.info("[extract] xlsx no-media", { rid });
+    return images;
+  }
 
   const entries: { name: string; file: JSZip.JSZipObject }[] = [];
   mediaFolder.forEach((relativePath, file) => {
@@ -21,6 +26,7 @@ export async function extractImagesFromXlsx(
   });
 
   const MIN_SIZE = 10 * 1024; // 10KB — 로고/아이콘 등 작은 이미지 제외
+  const skipped: { name: string; bytes: number; reason: string }[] = [];
 
   for (const { name, file } of entries) {
     const lower = name.toLowerCase();
@@ -31,19 +37,30 @@ export async function extractImagesFromXlsx(
       mimeType = "image/jpeg";
     else if (lower.endsWith(".gif")) mimeType = "image/gif";
 
-    if (!mimeType) continue;
+    if (!mimeType) {
+      skipped.push({ name, bytes: 0, reason: "unsupported-type" });
+      continue;
+    }
 
     const data = await file.async("base64");
 
     // base64 크기로 원본 바이트 추정 (base64 ≈ 원본 × 4/3)
     const estimatedBytes = Math.ceil((data.length * 3) / 4);
     if (estimatedBytes < MIN_SIZE) {
-      console.log(`이미지 제외 (${estimatedBytes} bytes < ${MIN_SIZE}): ${name}`);
+      skipped.push({ name, bytes: estimatedBytes, reason: "below-min-size" });
       continue;
     }
 
     images.push({ base64: data, mimeType, fileName: name });
   }
+
+  logger.info("[extract] xlsx images", {
+    rid,
+    found: entries.length,
+    kept: images.length,
+    skipped: skipped.length,
+    skippedDetails: skipped,
+  });
 
   return images;
 }

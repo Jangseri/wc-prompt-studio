@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { analyzeImageWithOpenAI } from "./openai-vision";
-import { logger } from "./logger";
+import { logger, withLog } from "./logger";
 
 /**
  * Lazy-init Gemini client. We don't construct it at module load so a
@@ -35,6 +35,9 @@ export interface AnalyzeImageInput {
   prompt: string;
   /** Optional model override. */
   model?: string;
+  /** Request correlation ID (logger.makeRequestId). Threaded through
+   *  to the OpenAI fallback so all log lines for one image stay tied. */
+  rid?: string;
 }
 
 /**
@@ -48,31 +51,64 @@ export interface AnalyzeImageInput {
 export async function analyzeImageWithGemini(
   input: AnalyzeImageInput
 ): Promise<string> {
+  const model = input.model ?? DEFAULT_VISION_MODEL;
+  const bytes = Math.ceil((input.base64.length * 3) / 4);
+  const meta = { rid: input.rid, model, mimeType: input.mimeType, bytes };
+
   try {
-    const client = getClient();
-    const model = client.getGenerativeModel({
-      model: input.model ?? DEFAULT_VISION_MODEL,
-      generationConfig: {
-        temperature: 0.1,
-        maxOutputTokens: 4096,
-      },
-    });
+    const response = await withLog(
+      "[gemini] vision",
+      meta,
+      async () => {
+        const client = getClient();
+        const m = client.getGenerativeModel({
+          model,
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 4096,
+          },
+        });
 
-    const result = await model.generateContent([
-      { text: input.prompt },
-      {
-        inlineData: {
-          mimeType: input.mimeType,
-          data: input.base64,
-        },
-      },
-    ]);
+        const result = await m.generateContent([
+          { text: input.prompt },
+          {
+            inlineData: {
+              mimeType: input.mimeType,
+              data: input.base64,
+            },
+          },
+        ]);
 
-    return result.response.text();
+        return result.response;
+      },
+      (resp) => {
+        // Extract every signal that helps tell apart the truncation
+        // modes (STOP / MAX_TOKENS / SAFETY / RECITATION) and the
+        // actual prompt-block case (promptFeedback.blockReason).
+        const cand = resp.candidates?.[0];
+        const text = (() => {
+          try {
+            return resp.text();
+          } catch {
+            return "";
+          }
+        })();
+        return {
+          textLength: text.length,
+          finishReason: cand?.finishReason,
+          finishMessage: cand?.finishMessage,
+          blockReason: resp.promptFeedback?.blockReason,
+          safetyRatings: cand?.safetyRatings,
+          usage: resp.usageMetadata,
+          preview: text.slice(0, 80),
+        };
+      }
+    );
+    return response.text();
   } catch (geminiErr) {
     logger.warn(
-      "[gemini] image analysis failed, falling back to openai",
-      geminiErr
+      "[gemini] vision falling back to openai",
+      { rid: input.rid, error: (geminiErr as Error).message }
     );
     try {
       // Don't pass through `input.model` — that's a Gemini model id and
@@ -82,6 +118,7 @@ export async function analyzeImageWithGemini(
         base64: input.base64,
         mimeType: input.mimeType,
         prompt: input.prompt,
+        rid: input.rid,
       });
     } catch (openaiErr) {
       throw new Error(

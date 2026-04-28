@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { RowDataPacket } from "mysql2";
 import { getPool, sanitizeDbError } from "@/lib/db";
+import { logRoute } from "@/lib/logger";
 import { parseCompaniesQuery } from "@/lib/schemas/companies";
 import type { ApiResponse } from "@/types/editor";
 import { CHANNEL_CODES, type Channel } from "@/lib/prompt-codes";
@@ -17,6 +18,7 @@ export interface CompanyRow {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
+  return logRoute("[companies] GET", {}, async () => {
   let parsed;
   try {
     parsed = parseCompaniesQuery(searchParams);
@@ -82,4 +84,5 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
+  });
 }

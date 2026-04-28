@@ -11,7 +11,7 @@ import {
 } from "@/lib/system-prompt";
 import { generateRequestSchema, isRegionsRequest } from "@/lib/schemas/generate";
 import { check as rateCheck, getClientIp } from "@/lib/rate-limit";
-import { logger } from "@/lib/logger";
+import { logger, logRoute, withLog } from "@/lib/logger";
 import {
   applyIndustryPreset,
   DEFAULT_STT_TTS_RULES,
@@ -21,77 +21,99 @@ import type { StructuringPrompt } from "@/types/structuring";
 const RATE_LIMIT = { capacity: 10, refillPerSecond: 10 / 60 }; // ~10/min burst
 
 export async function POST(req: Request) {
-  const ip = getClientIp(req);
-  const rl = rateCheck(ip, RATE_LIMIT);
-  if (!rl.allowed) {
-    return NextResponse.json(
-      { error: "요청이 너무 잦습니다. 잠시 후 다시 시도해주세요." },
-      {
-        status: 429,
-        headers: {
-          "retry-after": String(Math.ceil(rl.resetMs / 1000)),
-        },
-      }
-    );
-  }
-
-  let raw: unknown;
-  try {
-    raw = await req.json();
-  } catch {
-    return NextResponse.json(
-      { error: "잘못된 요청 형식입니다" },
-      { status: 400 }
-    );
-  }
-
-  let parsed;
-  try {
-    parsed = generateRequestSchema.parse(raw);
-  } catch (err) {
-    if (err instanceof ZodError) {
+  return logRoute("[generate] POST", {}, async (rid) => {
+    const ip = getClientIp(req);
+    const rl = rateCheck(ip, RATE_LIMIT);
+    if (!rl.allowed) {
       return NextResponse.json(
-        { error: "요청 스키마 검증 실패", details: err.flatten() },
+        { error: "요청이 너무 잦습니다. 잠시 후 다시 시도해주세요." },
+        {
+          status: 429,
+          headers: {
+            "retry-after": String(Math.ceil(rl.resetMs / 1000)),
+          },
+        }
+      );
+    }
+
+    let raw: unknown;
+    try {
+      raw = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: "잘못된 요청 형식입니다" },
         { status: 400 }
       );
     }
-    return NextResponse.json({ error: "요청 검증 실패" }, { status: 400 });
-  }
 
-  if (isRegionsRequest(parsed)) {
-    return handleRegions(parsed);
-  }
-  return handleLegacy(parsed, raw as Record<string, unknown>);
+    let parsed;
+    try {
+      parsed = generateRequestSchema.parse(raw);
+    } catch (err) {
+      if (err instanceof ZodError) {
+        return NextResponse.json(
+          { error: "요청 스키마 검증 실패", details: err.flatten() },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json({ error: "요청 검증 실패" }, { status: 400 });
+    }
+
+    if (isRegionsRequest(parsed)) {
+      return handleRegions(parsed, rid);
+    }
+    return handleLegacy(parsed, raw as Record<string, unknown>, rid);
+  });
 }
 
-async function handleRegions(body: {
-  parsedText: string;
-  images?: string[];
-  channel: ChannelType;
-  industry: string;
-}): Promise<NextResponse> {
+async function handleRegions(
+  body: {
+    parsedText: string;
+    images?: string[];
+    channel: ChannelType;
+    industry: string;
+  },
+  rid: string
+): Promise<NextResponse> {
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: getRegionsSystemPrompt(body.channel) },
-        {
-          role: "user",
-          content: buildRegionsUserPrompt({
-            parsedText: body.parsedText,
-            imageDescriptions: body.images,
-            channel: body.channel,
-            industry: body.industry,
-          }),
-        },
-      ],
-      temperature: 0.1,
-      max_tokens: 8192,
-      response_format: {
-        type: "json_schema",
-        json_schema: STRUCTURING_JSON_SCHEMA,
-      },
+    const userPrompt = buildRegionsUserPrompt({
+      parsedText: body.parsedText,
+      imageDescriptions: body.images,
+      channel: body.channel,
+      industry: body.industry,
     });
+
+    const response = await withLog(
+      "[openai] generate:regions",
+      {
+        rid,
+        model: "gpt-4o",
+        channel: body.channel,
+        industry: body.industry,
+        textLength: body.parsedText.length,
+        imageCount: body.images?.length ?? 0,
+        promptLength: userPrompt.length,
+      },
+      async () =>
+        openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            { role: "system", content: getRegionsSystemPrompt(body.channel) },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.1,
+          max_tokens: 8192,
+          response_format: {
+            type: "json_schema",
+            json_schema: STRUCTURING_JSON_SCHEMA,
+          },
+        }),
+      (res) => ({
+        finishReason: res.choices[0]?.finish_reason,
+        usage: res.usage,
+        contentLength: res.choices[0]?.message?.content?.length ?? 0,
+      })
+    );
 
     const content = response.choices[0]?.message?.content ?? "";
     if (!content) {
@@ -105,7 +127,7 @@ async function handleRegions(body: {
     try {
       structuring = JSON.parse(content) as StructuringPrompt;
     } catch (err) {
-      logger.error("[generate:regions] JSON parse failed", err);
+      logger.error("[generate:regions] JSON parse failed", { rid, err });
       return NextResponse.json(
         { error: "LLM 응답이 JSON 형식이 아닙니다" },
         { status: 502 }
@@ -135,7 +157,7 @@ async function handleRegions(body: {
       warnings: [],
     });
   } catch (err) {
-    logger.error("[generate:regions] OpenAI call failed", err);
+    logger.error("[generate:regions] OpenAI call failed", { rid, err });
     return NextResponse.json(
       { error: "프롬프트 생성에 실패했습니다" },
       { status: 500 }
@@ -150,7 +172,8 @@ async function handleLegacy(
     industry?: string;
     channelType?: string;
   },
-  rawBody: Record<string, unknown>
+  rawBody: Record<string, unknown>,
+  rid: string
 ): Promise<NextResponse> {
   // Legacy payload shape diverges from the new one; fall back to raw body
   // fields for backward compat with existing frontend calls.
@@ -171,15 +194,33 @@ async function handleLegacy(
       channel
     );
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: getMetaSystemPrompt(channel) },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.1,
-      max_tokens: 8192,
-    });
+    const response = await withLog(
+      "[openai] generate:legacy",
+      {
+        rid,
+        model: "gpt-4o",
+        channel,
+        type,
+        textLength: textContent.length,
+        imageCount: imageDescriptions.length,
+        promptLength: userPrompt.length,
+      },
+      async () =>
+        openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            { role: "system", content: getMetaSystemPrompt(channel) },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.1,
+          max_tokens: 8192,
+        }),
+      (res) => ({
+        finishReason: res.choices[0]?.finish_reason,
+        usage: res.usage,
+        contentLength: res.choices[0]?.message?.content?.length ?? 0,
+      })
+    );
 
     const fullPrompt = response.choices[0]?.message?.content ?? "";
     const greetingMessage = extractGreeting(fullPrompt);
@@ -193,7 +234,7 @@ async function handleLegacy(
       warnings,
     });
   } catch (err) {
-    logger.error("[generate:legacy] failed", err);
+    logger.error("[generate:legacy] failed", { rid, err });
     return NextResponse.json(
       { error: "Prompt generation failed" },
       { status: 500 }

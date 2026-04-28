@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@/lib/openai";
-import { logger } from "@/lib/logger";
+import { logger, logRoute, withLog } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
+  return logRoute("[improve] POST", {}, async (rid) => {
   try {
     const body = await req.json();
     const { currentPrompt, chatHistory, feedback } = body;
@@ -52,15 +53,31 @@ ${feedback}
 
 위 문제를 해결하도록 프롬프트를 수정해주세요.`;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemMessage },
-        { role: "user", content: userMessage },
-      ],
-      temperature: 0.1,
-      max_tokens: 8192,
-    });
+    const response = await withLog(
+      "[openai] improve",
+      {
+        rid,
+        model: "gpt-4o",
+        currentPromptLength: currentPrompt?.length ?? 0,
+        chatHistoryCount: chatHistory?.length ?? 0,
+        feedbackLength: feedback?.length ?? 0,
+      },
+      async () =>
+        openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            { role: "system", content: systemMessage },
+            { role: "user", content: userMessage },
+          ],
+          temperature: 0.1,
+          max_tokens: 8192,
+        }),
+      (res) => ({
+        finishReason: res.choices[0]?.finish_reason,
+        usage: res.usage,
+        contentLength: res.choices[0]?.message?.content?.length ?? 0,
+      })
+    );
 
     const raw = response.choices[0]?.message?.content ?? "";
 
@@ -77,10 +94,11 @@ ${feedback}
       summary,
     });
   } catch (err) {
-    logger.error("[improve] failed", err);
+    logger.error("[improve] failed", { rid, err });
     return NextResponse.json(
       { error: "Prompt improvement failed" },
       { status: 500 }
     );
   }
+  });
 }

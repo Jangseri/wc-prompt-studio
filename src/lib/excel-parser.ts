@@ -1,11 +1,15 @@
 import ExcelJS from "exceljs";
+import { logger } from "./logger";
 
 export interface ExcelParseResult {
   textContent: string;
   sheetNames: string[];
 }
 
-export async function parseExcel(buffer: Buffer): Promise<ExcelParseResult> {
+export async function parseExcel(
+  buffer: Buffer,
+  rid?: string
+): Promise<ExcelParseResult> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer as unknown as ExcelJS.Buffer);
 
@@ -59,8 +63,15 @@ export async function parseExcel(buffer: Buffer): Promise<ExcelParseResult> {
     });
   });
 
+  const textContent = textParts.join("\n");
+  logger.info("[parse] xlsx", {
+    rid,
+    sheets: sheetNames.length,
+    textLength: textContent.length,
+  });
+
   return {
-    textContent: textParts.join("\n"),
+    textContent,
     sheetNames,
   };
 }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { logRoute, withLog } from '@/lib/logger'
 import type { ApiResponse } from '@/types/editor'
 
 export const dynamic = 'force-dynamic'
@@ -10,62 +11,71 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const companySeq = searchParams.get('company_seq')
 
-  if (!companySeq) {
-    return NextResponse.json(
-      { success: false, error: 'company_seq is required' } satisfies ApiResponse<null>,
-      { status: 400 }
-    )
-  }
-
-  try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), ORCHESTRATOR_TIMEOUT)
-
-    const res = await fetch(`${ORCHESTRATOR_URL}/v1/orchestrator/files/${encodeURIComponent(companySeq)}`, {
-      headers: { accept: '*/*' },
-      signal: controller.signal,
-    })
-    clearTimeout(timer)
-
-    if (!res.ok) {
+  return logRoute('[kb] GET', { companySeq }, async (rid) => {
+    if (!companySeq) {
       return NextResponse.json(
-        { success: false, error: `오케스트레이터 응답 오류 (${res.status})` } satisfies ApiResponse<null>,
-        { status: 502 }
+        { success: false, error: 'company_seq is required' } satisfies ApiResponse<null>,
+        { status: 400 }
       )
     }
 
-    const data = await res.json()
+    try {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), ORCHESTRATOR_TIMEOUT)
 
-    if (data.code === 2000) {
-      return NextResponse.json({
-        success: true,
-        data: data.body as string[],
-      } satisfies ApiResponse<string[]>)
+      const url = `${ORCHESTRATOR_URL}/v1/orchestrator/files/${encodeURIComponent(companySeq)}`
+      const res = await withLog(
+        '[orchestrator] kb-list',
+        { rid, companySeq, url },
+        async () =>
+          fetch(url, {
+            headers: { accept: '*/*' },
+            signal: controller.signal,
+          }),
+        (r) => ({ status: r.status })
+      )
+      clearTimeout(timer)
+
+      if (!res.ok) {
+        return NextResponse.json(
+          { success: false, error: `오케스트레이터 응답 오류 (${res.status})` } satisfies ApiResponse<null>,
+          { status: 502 }
+        )
+      }
+
+      const data = await res.json()
+
+      if (data.code === 2000) {
+        return NextResponse.json({
+          success: true,
+          data: data.body as string[],
+        } satisfies ApiResponse<string[]>)
+      }
+
+      // "KB 폴더 자체가 아직 생성되지 않음" 같은 상태는 장애가 아니라
+      // 단순히 "데이터 없음" 신호로 취급. 빈 배열로 내려보내면 UI의
+      // 기존 empty-state ("이 회사에 연결된 KB가 없습니다.")가 표시됨.
+      const errMsg = typeof data.errMessage === 'string' ? data.errMessage : ''
+      const isFolderNotFound = /폴더.*존재하지\s*않|경로를\s*확인/.test(errMsg)
+      if (isFolderNotFound) {
+        return NextResponse.json({
+          success: true,
+          data: [] as string[],
+        } satisfies ApiResponse<string[]>)
+      }
+
+      return NextResponse.json(
+        { success: false, error: errMsg || '오케스트레이터 오류' } satisfies ApiResponse<null>,
+        { status: 502 }
+      )
+    } catch (err) {
+      const message = err instanceof DOMException && err.name === 'AbortError'
+        ? '오케스트레이터 응답 시간 초과'
+        : '오케스트레이터에 연결할 수 없습니다'
+      return NextResponse.json(
+        { success: false, error: message } satisfies ApiResponse<null>,
+        { status: 502 }
+      )
     }
-
-    // "KB 폴더 자체가 아직 생성되지 않음" 같은 상태는 장애가 아니라
-    // 단순히 "데이터 없음" 신호로 취급. 빈 배열로 내려보내면 UI의
-    // 기존 empty-state ("이 회사에 연결된 KB가 없습니다.")가 표시됨.
-    const errMsg = typeof data.errMessage === 'string' ? data.errMessage : ''
-    const isFolderNotFound = /폴더.*존재하지\s*않|경로를\s*확인/.test(errMsg)
-    if (isFolderNotFound) {
-      return NextResponse.json({
-        success: true,
-        data: [] as string[],
-      } satisfies ApiResponse<string[]>)
-    }
-
-    return NextResponse.json(
-      { success: false, error: errMsg || '오케스트레이터 오류' } satisfies ApiResponse<null>,
-      { status: 502 }
-    )
-  } catch (err) {
-    const message = err instanceof DOMException && err.name === 'AbortError'
-      ? '오케스트레이터 응답 시간 초과'
-      : '오케스트레이터에 연결할 수 없습니다'
-    return NextResponse.json(
-      { success: false, error: message } satisfies ApiResponse<null>,
-      { status: 502 }
-    )
-  }
+  })
 }

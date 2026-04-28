@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getPool, sanitizeDbError } from '@/lib/db'
+import { logger, logRoute } from '@/lib/logger'
 import type { ApiResponse, CstmPrmtInfo } from '@/types/editor'
 
 export async function PUT(
@@ -7,6 +8,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+  return logRoute('[prompts:id] PUT', { id }, async (rid) => {
   if (!id || isNaN(Number(id))) {
     return NextResponse.json(
       { success: false, error: '유효하지 않은 ID입니다' } satisfies ApiResponse<null>,
@@ -125,13 +127,20 @@ export async function PUT(
     )
     const updated = (rows as CstmPrmtInfo[])[0]
 
+    logger.info('[prompts:id] update ok', {
+      rid,
+      cstmId: id,
+      fieldsUpdated: setClauses.length,
+    })
     return NextResponse.json({ success: true, data: updated } satisfies ApiResponse<CstmPrmtInfo>)
   } catch (err) {
+    logger.error('[prompts:id] update fail', { rid, cstmId: id, err })
     return NextResponse.json(
       { success: false, error: sanitizeDbError(err) } satisfies ApiResponse<null>,
       { status: 500 }
     )
   }
+  })
 }
 
 export async function DELETE(
@@ -139,6 +148,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+  return logRoute('[prompts:id] DELETE', { id }, async (rid) => {
   if (!id || isNaN(Number(id))) {
     return NextResponse.json(
       { success: false, error: '유효하지 않은 ID입니다' } satisfies ApiResponse<null>,
@@ -161,11 +171,14 @@ export async function DELETE(
       )
     }
 
+    logger.info('[prompts:id] delete ok', { rid, cstmId: id })
     return NextResponse.json({ success: true } satisfies ApiResponse<null>)
   } catch (err) {
+    logger.error('[prompts:id] delete fail', { rid, cstmId: id, err })
     return NextResponse.json(
       { success: false, error: sanitizeDbError(err) } satisfies ApiResponse<null>,
       { status: 500 }
     )
   }
+  })
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { getPool, sanitizeDbError } from "@/lib/db";
+import { logger, logRoute } from "@/lib/logger";
 import { applyPromptTransaction, ExistingPromptsError } from "@/lib/apply-prompt";
 import {
   promptsPostSchema,
@@ -17,6 +18,10 @@ export async function GET(request: Request) {
   const aiStaffSeq = searchParams.get("ai_staff_seq");
   const svcCd = searchParams.get("svc_cd");
 
+  return logRoute(
+    "[prompts] GET",
+    { companySeq, aiStaffSeq, svcCd },
+    async () => {
   try {
     const pool = getPool();
     const conditions: string[] = [];
@@ -48,9 +53,12 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
+    }
+  );
 }
 
 export async function POST(request: Request) {
+  return logRoute("[prompts] POST", {}, async (rid) => {
   const ip = getClientIp(request);
   const rl = rateCheck(ip, RATE_LIMIT);
   if (!rl.allowed) {
@@ -98,6 +106,14 @@ export async function POST(request: Request) {
     const pool = getPool();
     const conn = await pool.getConnection();
     try {
+      logger.info("[prompts] tx start", {
+        rid,
+        companySeq: parsed.company_seq,
+        aiStaffSeq: parsed.ai_staff_seq,
+        channel: parsed.channel,
+        industry: parsed.industry,
+        promptLength: parsed.prompt?.length ?? 0,
+      });
       const result = await applyPromptTransaction(conn, {
         companySeq: parsed.company_seq,
         aiStaffSeq: parsed.ai_staff_seq,
@@ -115,6 +131,13 @@ export async function POST(request: Request) {
       );
       const main = (rows as CstmPrmtInfo[])[0];
 
+      logger.info("[prompts] tx ok", {
+        rid,
+        cstmId: result.main.cstm_id,
+        siblingsCreated: result.siblings.filter((s) => s.created).length,
+        siblingsTotal: result.siblings.length,
+      });
+
       return NextResponse.json(
         {
           success: true,
@@ -130,6 +153,10 @@ export async function POST(request: Request) {
       );
     } catch (err) {
       if (err instanceof ExistingPromptsError) {
+        logger.warn("[prompts] tx blocked by existing", {
+          rid,
+          existingPrmtCds: err.existingPrmtCds,
+        });
         return NextResponse.json(
           {
             success: false,
@@ -140,6 +167,7 @@ export async function POST(request: Request) {
           { status: 409 }
         );
       }
+      logger.error("[prompts] tx fail", { rid, err });
       return NextResponse.json(
         { success: false, error: sanitizeDbError(err) } satisfies ApiResponse<null>,
         { status: 500 }
@@ -173,14 +201,22 @@ export async function POST(request: Request) {
     );
     const inserted = (rows as CstmPrmtInfo[])[0];
 
+    logger.info("[prompts] insert ok", {
+      rid,
+      cstmId: insertId,
+      svcCd: parsed.svc_cd,
+      prmtCd: parsed.prmt_cd,
+    });
     return NextResponse.json(
       { success: true, data: inserted } satisfies ApiResponse<CstmPrmtInfo>,
       { status: 201 }
     );
   } catch (err) {
+    logger.error("[prompts] insert fail", { rid, err });
     return NextResponse.json(
       { success: false, error: sanitizeDbError(err) } satisfies ApiResponse<null>,
       { status: 500 }
     );
   }
+  });
 }
