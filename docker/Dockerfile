@@ -13,6 +13,13 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# 리버스 프록시 뒤에 path prefix 로 노출되는 환경에서 next.config.ts 가
+# 같은 env 를 읽어 basePath 를 적용한다. NEXT_PUBLIC_ prefix 라 빌드 시
+# 클라이언트 번들에도 인라인되어 fetch 헬퍼(apiPath) 도 prefix 를 붙임.
+# 비어있으면 root mount(localhost dev 동일).
+ARG NEXT_PUBLIC_BASE_PATH=""
+ENV NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH
+
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 

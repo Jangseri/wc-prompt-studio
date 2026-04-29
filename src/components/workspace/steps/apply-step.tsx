@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useWorkspaceStore, type ApplyResult } from "@/stores/workspace-store";
 import { useStructuringStore } from "@/stores/structuring-store";
 import { useCodeNames } from "@/hooks/useCodeNames";
+import { apiPath } from "@/lib/api-path";
 import { assemblePrompt } from "@/components/structuring/lib/assemble-prompt";
 import { CHANNEL_CODES, SIBLING_PRMT_CDS } from "@/lib/prompt-codes";
 
@@ -53,7 +54,7 @@ export function ApplyStep() {
       // as-is by downstream LLM runners, and Management edits it as
       // plain text.
       const rendered = assemblePrompt(structuringPrompt, targetLLM);
-      const res = await fetch("/api/prompts", {
+      const res = await fetch(apiPath("/api/prompts"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiPath } from "@/lib/api-path";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import {
   CHANNEL_LABEL,
@@ -53,7 +54,7 @@ export function SetupStep() {
           company_seq: co,
           ai_staff_seq: ai,
         });
-        const res = await fetch(`/api/prompts?${params.toString()}`, {
+        const res = await fetch(apiPath(`/api/prompts?${params.toString()}`), {
           signal: controller.signal,
         });
         const data = await res.json();

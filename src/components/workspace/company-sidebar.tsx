@@ -8,6 +8,7 @@ import { useStructuringStore } from "@/stores/structuring-store";
 import { useCompanyNamesStore } from "@/stores/company-names-store";
 import { useCompanyName } from "@/hooks/useCompanyName";
 import { useCodeNames } from "@/hooks/useCodeNames";
+import { apiPath } from "@/lib/api-path";
 import {
   CHANNEL_LABEL,
   SVC_CD_ORDER,
@@ -101,7 +102,7 @@ export function CompanySidebar() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/companies");
+      const res = await fetch(apiPath("/api/companies"));
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data?.error ?? `HTTP ${res.status}`);

@@ -3,6 +3,12 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+      args:
+        # 리버스 프록시(dev-backdoor.ploonet.com/prompt-studio/) 아래에서
+        # 서빙되므로 Next.js 와 fetch 헬퍼 양쪽에 같은 prefix 를 빌드 시점에
+        # 인라인. 직접 IP(7999) 로 접속할 일이 더 이상 없다면 그대로 두고,
+        # localhost 단독 배포가 필요해지면 값만 비우면 됨.
+        NEXT_PUBLIC_BASE_PATH: /prompt-studio
     container_name: wc-prompt-studio
     # Run as the host's seri user so the mounted ./logs volume is
     # writable without chown. Adjust if the host user differs.

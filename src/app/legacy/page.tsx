@@ -22,6 +22,7 @@ import { useCodeNames } from "@/hooks/useCodeNames";
 import { useLlmConfig } from "@/hooks/useLlmConfig";
 import { useCodeOptions } from "@/hooks/useCodeOptions";
 import { fetchKBList } from "@/lib/kb-api";
+import { apiPath } from "@/lib/api-path";
 import Header from "@/components/layout/header";
 import FileDropzone from "@/components/auto/upload/file-dropzone";
 import UploadProgress from "@/components/auto/upload/upload-progress";
@@ -80,7 +81,7 @@ function UploadStep() {
       uploadedFiles.forEach((f) => formData.append("files", f));
       formData.append("type", detectedType);
 
-      const uploadRes = await fetch("/api/upload", {
+      const uploadRes = await fetch(apiPath("/api/upload"), {
         method: "POST",
         body: formData,
       });
@@ -125,7 +126,7 @@ function UploadStep() {
       const filteredImages = parsedImageDescriptions.filter((_, i) => !excludedImageIndices.has(i));
       setUsedImageDescriptions(filteredImages);
 
-      const generateRes = await fetch("/api/generate", {
+      const generateRes = await fetch(apiPath("/api/generate"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -482,7 +483,7 @@ function ChatStep() {
     setImproveSummary("");
 
     try {
-      const res = await fetch("/api/improve", {
+      const res = await fetch(apiPath("/api/improve"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -738,7 +739,7 @@ function EditorTab() {
         const params = companySeq ? `?company_seq=${encodeURIComponent(companySeq)}` : "";
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 15000);
-        const res = await fetch(`/api/prompts${params}`, { signal: controller.signal });
+        const res = await fetch(apiPath(`/api/prompts${params}`), { signal: controller.signal });
         clearTimeout(timer);
         const data = await res.json();
         if (data.success) {

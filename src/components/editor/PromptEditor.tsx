@@ -9,6 +9,7 @@ import { ExpandModal } from './ExpandModal'
 import { EditorErrorBoundary } from './EditorErrorBoundary'
 import { toast } from 'sonner'
 import { useChangeDetection, type EditableFields } from '@/hooks/useChangeDetection'
+import { apiPath } from '@/lib/api-path'
 import type { CstmPrmtInfo } from '@/types/editor'
 import type { CodeGroup } from '@/hooks/useCodeOptions'
 
@@ -112,7 +113,7 @@ export function PromptEditor({ item, isCreateMode = false, defaultCompanySeq = '
       try {
         const controller = new AbortController()
         const timer = setTimeout(() => controller.abort(), 15000)
-        const res = await fetch('/api/prompts', {
+        const res = await fetch(apiPath('/api/prompts'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
@@ -144,7 +145,7 @@ export function PromptEditor({ item, isCreateMode = false, defaultCompanySeq = '
     try {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), 15000)
-      const res = await fetch(`/api/prompts/${item.cstm_id}`, {
+      const res = await fetch(apiPath(`/api/prompts/${item.cstm_id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, _updt_dt: meta.updt_dt }),
@@ -180,7 +181,7 @@ export function PromptEditor({ item, isCreateMode = false, defaultCompanySeq = '
     try {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), 15000)
-      const res = await fetch(`/api/prompts/${item.cstm_id}`, {
+      const res = await fetch(apiPath(`/api/prompts/${item.cstm_id}`), {
         method: 'DELETE',
         signal: controller.signal,
       })

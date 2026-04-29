@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useCodeNames } from "@/hooks/useCodeNames";
+import { apiPath } from "@/lib/api-path";
 import {
   CHANNEL_LABEL,
   SVC_CD_ORDER,
@@ -87,7 +88,7 @@ export function ManagementPanel() {
         company_seq: companySeq,
         ai_staff_seq: aiStaffSeq,
       });
-      const res = await fetch(`/api/prompts?${params.toString()}`);
+      const res = await fetch(apiPath(`/api/prompts?${params.toString()}`));
       const data = await res.json();
       if (!res.ok || !data.success) {
         throw new Error(data?.error ?? `HTTP ${res.status}`);
@@ -296,7 +297,7 @@ function PromptCard({
     }
     setSaving(true);
     try {
-      const res = await fetch(`/api/prompts/${item.cstm_id}`, {
+      const res = await fetch(apiPath(`/api/prompts/${item.cstm_id}`), {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -323,7 +324,7 @@ function PromptCard({
     const next = item.status === "Y" ? "N" : "Y";
     setTogglingStatus(true);
     try {
-      const res = await fetch(`/api/prompts/${item.cstm_id}`, {
+      const res = await fetch(apiPath(`/api/prompts/${item.cstm_id}`), {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

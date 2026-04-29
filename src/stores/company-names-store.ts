@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { apiPath } from "@/lib/api-path";
 
 /**
  * Session-memory cache for company names keyed by company_seq.
@@ -49,7 +50,7 @@ interface CompanyNamesStore {
 
 async function fetchCompanyName(seq: string): Promise<string | null> {
   try {
-    const res = await fetch("/api/company-info", {
+    const res = await fetch(apiPath("/api/company-info"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ companySeq: seq }),

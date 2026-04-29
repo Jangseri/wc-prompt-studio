@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import { useStructuringStore } from "@/stores/structuring-store";
+import { apiPath } from "@/lib/api-path";
 import { StepNav } from "../step-nav";
 import { ExpandModal } from "../expand-modal";
 import type { StructuringPrompt } from "@/types/structuring";
@@ -99,7 +100,7 @@ export function AnalysisStep() {
       const formData = new FormData();
       sourceFiles.forEach((f) => formData.append("files", f));
 
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const res = await fetch(apiPath("/api/upload"), { method: "POST", body: formData });
       if (!res.ok) {
         throw new Error(`업로드 실패 (HTTP ${res.status})`);
       }
@@ -130,7 +131,7 @@ export function AnalysisStep() {
     setGenerating(true);
     setGenerateError(null);
     try {
-      const res = await fetch("/api/generate", {
+      const res = await fetch(apiPath("/api/generate"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

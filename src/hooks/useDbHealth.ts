@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useEditorStore } from "@/stores/editor-store";
+import { apiPath } from "@/lib/api-path";
 
 /**
  * Polls /api/health every 30s and writes the result into editor-store
@@ -17,7 +18,7 @@ export function useDbHealth() {
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 10000);
-        const res = await fetch("/api/health", { signal: controller.signal });
+        const res = await fetch(apiPath("/api/health"), { signal: controller.signal });
         clearTimeout(timer);
         const data = await res.json();
         setDbConnected(data.connected);

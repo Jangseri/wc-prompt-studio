@@ -1,3 +1,11 @@
+import { apiPath } from './api-path'
+
+/** input 이 string 이면 BASE_PATH prefix 를 자동 적용. URL 객체나
+ *  Request 는 호출자가 책임지고 만들었다고 보고 그대로 통과. */
+function withBasePath(input: RequestInfo | URL): RequestInfo | URL {
+  return typeof input === 'string' ? apiPath(input) : input
+}
+
 /** 타임아웃을 지원하는 fetch wrapper */
 export async function fetchWithTimeout(
   input: RequestInfo | URL,
@@ -9,7 +17,7 @@ export async function fetchWithTimeout(
   const timer = setTimeout(() => controller.abort(), timeout)
 
   try {
-    const res = await fetch(input, { ...fetchInit, signal: controller.signal })
+    const res = await fetch(withBasePath(input), { ...fetchInit, signal: controller.signal })
     return res
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') {

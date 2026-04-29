@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { Send, Trash2 } from "lucide-react";
 import { nanoid } from "nanoid";
 import { cn } from "@/lib/utils";
+import { apiPath } from "@/lib/api-path";
 import { useAutoStore } from "@/stores/auto-store";
 
 export default function ChatInput() {
@@ -58,7 +59,7 @@ export default function ChatInput() {
         { role: "user" as const, content: trimmed },
       ];
 
-      const res = await fetch("/api/chat", {
+      const res = await fetch(apiPath("/api/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

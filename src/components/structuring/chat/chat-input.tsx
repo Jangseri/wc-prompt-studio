@@ -5,6 +5,7 @@ import { Send } from "lucide-react";
 import { nanoid } from "nanoid";
 import { cn } from "@/lib/utils";
 import { useStructuringStore } from "@/stores/structuring-store";
+import { apiPath } from "@/lib/api-path";
 import { assemblePrompt } from "../lib/assemble-prompt";
 
 export function ChatInput() {
@@ -73,7 +74,7 @@ export function ChatInput() {
         { role: "user" as const, content: trimmed },
       ];
 
-      const res = await fetch("/api/chat", {
+      const res = await fetch(apiPath("/api/chat"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
