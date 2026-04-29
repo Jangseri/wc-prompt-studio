@@ -11,11 +11,10 @@ const nextConfig: NextConfig = {
   // production Docker image copies. Without this, `next start` would
   // need the full devDeps tree shipped to the server.
   output: "standalone",
+  // basePath 는 env 가 비어있으면 no-op. dev-ps 처럼 dedicated
+  // 서브도메인 환경에선 비어있고, 다시 path-prefix 프록시가 필요해
+  // 지면 NEXT_PUBLIC_BASE_PATH 만 다시 주입하면 됨.
   basePath,
-  // 리버스 프록시의 `location /prompt-studio/` 가 trailing slash 가
-  // 붙은 경로만 매치하므로, Next 도 slash 붙은 형태를 canonical 로
-  // 사용해야 nginx 와 redirect 무한 loop / 404 가 안 생김.
-  trailingSlash: true,
 };
 
 export default nextConfig;
