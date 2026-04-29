@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
   // need the full devDeps tree shipped to the server.
   output: "standalone",
   basePath,
+  // 리버스 프록시의 `location /prompt-studio/` 가 trailing slash 가
+  // 붙은 경로만 매치하므로, Next 도 slash 붙은 형태를 canonical 로
+  // 사용해야 nginx 와 redirect 무한 loop / 404 가 안 생김.
+  trailingSlash: true,
 };
 
 export default nextConfig;
