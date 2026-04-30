@@ -14,6 +14,7 @@ import { check as rateCheck, getClientIp } from "@/lib/rate-limit";
 import { logger, logRoute, withLog } from "@/lib/logger";
 import {
   applyIndustryPreset,
+  DEFAULT_CHAT_RULES,
   DEFAULT_STT_TTS_RULES,
 } from "@/lib/regions-presets";
 import type { StructuringPrompt } from "@/types/structuring";
@@ -140,7 +141,8 @@ async function handleRegions(
     // whatever the LLM returned because the system prompt already tells
     // the model to leave these fields empty — this is the fallback that
     // guarantees a consistent shape regardless of LLM drift.
-    structuring.system.sttTts = DEFAULT_STT_TTS_RULES;
+    structuring.system.rules =
+      body.channel === "chatbot" ? DEFAULT_CHAT_RULES : DEFAULT_STT_TTS_RULES;
     structuring.answerScope.specifics.keyValueItems = [];
     structuring.answerScope.specifics.sentence = "";
     structuring.toolCalling = { mcp: "", api: "", agent: "", dataQuery: "" };

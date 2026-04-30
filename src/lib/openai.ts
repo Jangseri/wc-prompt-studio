@@ -21,7 +21,7 @@ const MOCK_STRUCTURING = {
   },
   branching: { description: "", pseudoCode: "" },
   toolCalling: { mcp: "", api: "", agent: "", dataQuery: "" },
-  system: { sttTts: "" },
+  system: { rules: "" },
   conversation: {
     rules: {
       rejectOutOfScope: true,

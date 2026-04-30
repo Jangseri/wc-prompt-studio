@@ -22,7 +22,7 @@ const emptyPrompt = (): StructuringPrompt => ({
   },
   branching: { topLevelRules: [], steps: [] },
   toolCalling: { mcp: "", api: "", agent: "", dataQuery: "" },
-  system: { sttTts: "" },
+  system: { rules: "" },
   conversation: {
     rules: {
       rejectOutOfScope: false,

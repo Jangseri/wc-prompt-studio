@@ -45,7 +45,7 @@ function makeFixture(overrides: Partial<StructuringPrompt> = {}): StructuringPro
       ],
     },
     toolCalling: { mcp: "", api: "", agent: "", dataQuery: "" },
-    system: { sttTts: "Clova STT + Polly TTS" },
+    system: { rules: "Clova STT + Polly TTS" },
     conversation: {
       rules: {
         rejectOutOfScope: true,

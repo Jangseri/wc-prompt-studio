@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   getIndustryInputInfoBlock,
   applyIndustryPreset,
+  DEFAULT_CHAT_RULES,
   DEFAULT_STT_TTS_RULES,
 } from "@/lib/regions-presets";
 import type { StructuringPrompt } from "@/types/structuring";
@@ -17,7 +18,7 @@ function baseStructuring(overrides?: Partial<StructuringPrompt>): StructuringPro
     },
     branching: { topLevelRules: [], steps: [] },
     toolCalling: { mcp: "", api: "", agent: "", dataQuery: "" },
-    system: { sttTts: "" },
+    system: { rules: "" },
     conversation: {
       rules: {
         rejectOutOfScope: false,
@@ -63,6 +64,22 @@ describe("DEFAULT_STT_TTS_RULES", () => {
       "3. [STT] 음운 유사성 기반 엔티티 매핑 규칙"
     );
     expect(DEFAULT_STT_TTS_RULES).toContain("4. [STT] 입력 해석 규칙");
+  });
+});
+
+describe("DEFAULT_CHAT_RULES", () => {
+  it("contains both 응답 원칙 and 스타일 가이드 sections", () => {
+    expect(DEFAULT_CHAT_RULES).toContain("1. [Chat] 응답 원칙");
+    expect(DEFAULT_CHAT_RULES).toContain("2. [Chat] 스타일 가이드");
+  });
+
+  it("references [답변 참고자료] (not QnA) for source-of-truth wording", () => {
+    expect(DEFAULT_CHAT_RULES).toContain("[답변 참고자료]");
+    expect(DEFAULT_CHAT_RULES).not.toContain("QnA");
+  });
+
+  it("does not include the excluded JSON Object output principle", () => {
+    expect(DEFAULT_CHAT_RULES).not.toContain("JSON Object");
   });
 });
 

@@ -1,10 +1,13 @@
 import type { StructuringPrompt } from "@/types/structuring";
 
 /**
- * Default STT/TTS rules that the server always writes into
- * `system.sttTts` after draft generation. The LLM is instructed to
- * leave the field empty — this constant is the single source of truth.
- * Users may edit the text freely in the UI afterwards.
+ * 채널별 System region 기본 규칙. 서버는 draft 생성 후 채널에 따라
+ * 둘 중 하나를 `system.rules` 에 무조건 덮어씁니다. LLM 에게는 빈
+ * 문자열을 반환하도록 지시되어 있으므로 이 상수가 단일 진실 공급원입니다.
+ * 사용자는 이후 UI 에서 자유롭게 편집할 수 있습니다.
+ *
+ * - DEFAULT_STT_TTS_RULES: 콜봇 (음성 STT/TTS) 전용 규칙
+ * - DEFAULT_CHAT_RULES: 챗봇 (텍스트) 전용 응답 원칙 + 스타일 가이드
  */
 export const DEFAULT_STT_TTS_RULES = `1. [TTS] 표현 규칙
 - 숫자·영문·기호는 모두 자연스러운 한국어 표현으로 변환합니다.
@@ -38,6 +41,25 @@ export const DEFAULT_STT_TTS_RULES = `1. [TTS] 표현 규칙
 (2) 감탄사, 불만 표현, 추임새 등 문의 분류 의도가 없는 발화
 (3) 의미 단서 없이 단음절 또는 무의미한 음절로만 구성된 발화
 위 조건에 해당하지 않는 경우에는 판단이 불확실하더라도 대화 흐름을 유지하는 방향으로 최대한 분류하여 진행한다.`;
+
+export const DEFAULT_CHAT_RULES = `1. [Chat] 응답 원칙
+- 모든 답변은 반드시 등록된 [답변 참고자료]에 포함된 정보만으로 답변합니다.
+- [답변 참고자료]에 없는 정보는 추측, 상식 설명, 유추로 대신하지 않습니다.
+- 줄바꿈(\\n)을 적극 사용하여 가독성을 확보합니다.
+- 내부 시스템 표현은 절대 출력하지 않습니다.
+- 고객 입력 언어와 동일한 언어로 응답합니다.
+- 멀티턴 대화에서 맥락을 유지합니다.
+- [답변 참고자료]에 없는 정보는 접수로 안내합니다.
+
+2. [Chat] 스타일 가이드
+- 모든 답변은 따뜻하고 자연스러운 존댓말로 작성합니다.
+- 전문적이고 신뢰감 있는 답변을 위해, 정확하지 않은 애매한 표현은 사용하지 않습니다.
+- 같은 질문이라도 동일한 문장을 반복하지 않고, 상황에 맞게 다양한 표현을 사용합니다.
+- 한 문장은 너무 길지 않게 2줄 이하로 나누고, 의미 단위로 \\n을 적극 사용합니다.
+- 단계/절차는 '1.', '1️⃣' 을 사용하고, 항목은 '-', '•', '✅' 기호로 구분하며 각 항목 전후에 \\n을 넣습니다.
+- 전문 용어나 내부 시스템 용어는 포함하지 않으며, 고객이 이해하기 쉬운 표현을 사용합니다.
+- 모든 답변에는 상황에 맞는 이모지를 최소 1개 자연스럽게 배치합니다(과도한 사용 금지).
+- 공백과 문단 나눔으로 답변이 한눈에 들어오도록 구성합니다.`;
 
 /**
  * Input-info blocks that are prepended to `companyInfo.description` by

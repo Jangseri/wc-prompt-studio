@@ -12,6 +12,7 @@ import { StepNav } from "../step-nav";
 
 export function RegionsStep() {
   const industry = useWorkspaceStore((s) => s.industry);
+  const channel = useWorkspaceStore((s) => s.channel);
   const goPrev = useWorkspaceStore((s) => s.goPrev);
   const goNext = useWorkspaceStore((s) => s.goNext);
   const canAdvance = useWorkspaceStore((s) => s.canAdvanceFrom("regions"));
@@ -68,8 +69,13 @@ export function RegionsStep() {
               </li>
             )}
             <li>
-              · <span className="font-medium">System (STT/TTS)</span> 기본
-              규칙이 채워짐
+              ·{" "}
+              <span className="font-medium">
+                {channel === "chatbot"
+                  ? "System (Chat 응답 원칙)"
+                  : "System (STT/TTS)"}
+              </span>{" "}
+              기본 규칙이 채워짐
             </li>
             <li>
               · <span className="font-medium">Tool 호출 규칙</span>은 비활성

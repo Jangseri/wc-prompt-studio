@@ -64,7 +64,7 @@ export interface ToolCallingRegion {
 }
 
 export interface SystemRegion {
-  sttTts: string;
+  rules: string;
 }
 
 export interface ConversationRegion {
@@ -157,7 +157,7 @@ export const REGION_META: Record<RegionId, RegionMeta> = {
   system: {
     id: "system",
     label: "System",
-    description: "STT / TTS",
+    description: "기본 응답 원칙 (채널별)",
   },
   conversation: {
     id: "conversation",

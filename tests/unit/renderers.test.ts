@@ -19,7 +19,7 @@ function baseStructuring(overrides?: Partial<StructuringPrompt>): StructuringPro
     },
     branching: { topLevelRules: [], steps: [] },
     toolCalling: { mcp: "", api: "", agent: "", dataQuery: "" },
-    system: { sttTts: "" },
+    system: { rules: "" },
     conversation: {
       rules: {
         rejectOutOfScope: false,
@@ -318,7 +318,7 @@ describe("renderer: block order mirrors REGION_ORDER", () => {
         topLevelRules: [],
         steps: [{ id: "s1", title: "부서 확인", body: "→ 문의 식별" }],
       },
-      system: { sttTts: "STT 규칙 본문" },
+      system: { rules: "STT 규칙 본문" },
       conversation: {
         rules: {
           rejectOutOfScope: true,
@@ -336,7 +336,7 @@ describe("renderer: block order mirrors REGION_ORDER", () => {
     const role = idx("## Role");
     const persona = idx("## Persona");
     const company = idx("## 업무 및 회사 정보");
-    const system = idx("## System (STT/TTS)");
+    const system = idx("## System");
     const conversation = idx("## 대화 유지 규칙");
     const branching = idx("## 대화 흐름");
     const custom = idx("## 주의 사항");

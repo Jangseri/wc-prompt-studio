@@ -26,7 +26,7 @@ export function isRegionFilled(prompt: StructuringPrompt, id: RegionId): boolean
       return has(t.mcp) || has(t.api) || has(t.agent) || has(t.dataQuery);
     }
     case "system":
-      return has(prompt.system.sttTts);
+      return has(prompt.system.rules);
     case "conversation": {
       const c = prompt.conversation;
       // customNotes is no longer edited via the conversation card — the

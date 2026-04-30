@@ -36,8 +36,8 @@ export function renderGemini(p: StructuringPrompt): string {
     blocks.push(section("업무 및 회사 정보", lines.join("\n")));
   }
 
-  if (hasText(p.system.sttTts)) {
-    blocks.push(section("SYSTEM (STT/TTS)", p.system.sttTts));
+  if (hasText(p.system.rules)) {
+    blocks.push(section("SYSTEM", p.system.rules));
   }
 
   const convoRules = activeConversationRules(p.conversation);

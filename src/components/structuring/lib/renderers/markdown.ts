@@ -30,8 +30,8 @@ export function renderMarkdown(p: StructuringPrompt): string {
     blocks.push(`## 업무 및 회사 정보\n${lines.join("\n")}`);
   }
 
-  if (hasText(p.system.sttTts)) {
-    blocks.push(`## System (STT/TTS)\n${p.system.sttTts.trim()}`);
+  if (hasText(p.system.rules)) {
+    blocks.push(`## System\n${p.system.rules.trim()}`);
   }
 
   const convoRules = activeConversationRules(p.conversation);

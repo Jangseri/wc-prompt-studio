@@ -85,7 +85,7 @@ describe("POST /api/generate — regions mode happy path", () => {
               },
               branching: { description: "", pseudoCode: "" },
               toolCalling: { mcp: "", api: "", agent: "", dataQuery: "" },
-              system: { sttTts: "" },
+              system: { rules: "" },
               conversation: {
                 rules: {
                   rejectOutOfScope: true,

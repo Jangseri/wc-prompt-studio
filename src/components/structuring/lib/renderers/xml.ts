@@ -35,8 +35,8 @@ export function renderXml(p: StructuringPrompt): string {
     blocks.push(`<company_info>\n${inner.join("\n")}\n</company_info>`);
   }
 
-  if (hasText(p.system.sttTts)) {
-    blocks.push(wrap("system", p.system.sttTts));
+  if (hasText(p.system.rules)) {
+    blocks.push(wrap("system", p.system.rules));
   }
 
   const convoRules = activeConversationRules(p.conversation);

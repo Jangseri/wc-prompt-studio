@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Plus, Trash2, ChevronUp, ChevronDown, Maximize2, Save, X, Lock, Unlock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useStructuringStore } from "@/stores/structuring-store";
+import { useWorkspaceStore } from "@/stores/workspace-store";
+import { useAutoStore } from "@/stores/auto-store";
 import type {
   RoleRegion,
   PersonaRegion,
@@ -560,14 +562,31 @@ export function ToolCallingSection({ value }: { value: ToolCallingRegion }) {
 
 export function SystemSection({ value }: { value: SystemRegion }) {
   const update = useStructuringStore((s) => s.updateRegion);
-  // STT/TTS is server-provided standard rules — edits should be
-  // intentional. Locked by default; user clicks "수정" to unlock the
-  // textarea. Local state so closing/reopening the card re-locks.
+  // 채널에 따라 콜봇=STT/TTS, 챗봇=Chat 응답 원칙으로 라벨/문구가 바뀐다.
+  // 새 workspace 와 legacy 가 서로 다른 store 에 채널을 들고 있어서
+  // (workspace=`channel`, legacy=`channelType`) 둘 다 읽고 non-null 인
+  // 쪽을 우선한다. 둘 다 없으면 콜봇 카피로 폴백.
+  const wsChannel = useWorkspaceStore((s) => s.channel);
+  const legacyChannel = useAutoStore((s) => s.channelType);
+  const channel = wsChannel ?? legacyChannel;
+  const isChat = channel === "chatbot";
+  const label = isChat ? "Chat 응답 원칙" : "STT / TTS 규칙";
+  const hint = isChat
+    ? "응답 원칙 · 스타일 가이드"
+    : "음성 인식/합성 관련";
+  const lockNotice = isChat
+    ? "⚠️ 이 영역은 기본 제공되는 Chat 응답 원칙입니다. 수정 시 주의하세요."
+    : "⚠️ 이 영역은 기본 제공되는 STT/TTS 규칙입니다. 수정 시 주의하세요.";
+  const placeholder = isChat
+    ? "예: [답변 참고자료]에 없는 정보는 접수로 안내합니다."
+    : "예: 숫자는 '일이삼'이 아닌 '123'으로 인식, 전화번호는 한 자리씩 발화";
+  // 서버 제공 표준 규칙이라 사용자 의도가 없는 한 수정되면 안 됨. 기본
+  // 잠김 상태이고, "수정" 버튼으로 해제. 카드 닫았다 열면 다시 잠금.
   const [unlocked, setUnlocked] = useState(false);
   return (
     <Field
-      label="STT / TTS 규칙"
-      hint="음성 인식/합성 관련"
+      label={label}
+      hint={hint}
       className="flex h-full flex-col"
       action={
         <button
@@ -592,13 +611,13 @@ export function SystemSection({ value }: { value: SystemRegion }) {
     >
       {!unlocked && (
         <div className="shrink-0 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-500">
-          ⚠️ 이 영역은 기본 제공되는 STT/TTS 규칙입니다. 수정 시 주의하세요.
+          {lockNotice}
         </div>
       )}
       <TextArea
-        value={value.sttTts}
-        onChange={(v) => update("system", () => ({ sttTts: v }))}
-        placeholder="예: 숫자는 '일이삼'이 아닌 '123'으로 인식, 전화번호는 한 자리씩 발화"
+        value={value.rules}
+        onChange={(v) => update("system", () => ({ rules: v }))}
+        placeholder={placeholder}
         fill
         disabled={!unlocked}
       />
