@@ -127,14 +127,32 @@ export function TextArea({
   // layout recalc between clearing the inline height and reading
   // scrollHeight — without it, browsers can keep scrollHeight anchored
   // to the previous explicit height and the field never shrinks back.
+  //
+  // height="auto" 순간 textarea 가 한 줄로 쪼그라들면서 스크롤 가능한
+  // 조상의 scrollHeight 가 일시적으로 줄고, 브라우저가 그 시점의 최대치로
+  // scrollTop 을 깎아낸다. 곧바로 높이가 복구돼도 scrollTop 은 그대로라,
+  // 키 입력마다 스크롤이 위로 밀려 결국 맨 위로 튀는 현상이 생긴다.
+  // 높이 변경 전 모든 스크롤 조상의 scrollTop 을 스냅샷했다 복원한다.
   useIsomorphicLayoutEffect(() => {
     if (!autoResize) return;
     const el = textareaRef.current;
     if (!el) return;
+
+    const scrollers: { node: HTMLElement; top: number }[] = [];
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      const oy = getComputedStyle(p).overflowY;
+      if (oy === "auto" || oy === "scroll") {
+        scrollers.push({ node: p, top: p.scrollTop });
+      }
+    }
+
     el.style.height = "auto";
-    if (value.length === 0) return;
-    void el.offsetHeight;
-    el.style.height = `${el.scrollHeight}px`;
+    if (value.length > 0) {
+      void el.offsetHeight;
+      el.style.height = `${el.scrollHeight}px`;
+    }
+
+    for (const { node, top } of scrollers) node.scrollTop = top;
   }, [value, autoResize]);
 
   const textareaEl = (
