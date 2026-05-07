@@ -19,7 +19,8 @@ export async function parseExcel(
   workbook.eachSheet((sheet) => {
     sheetNames.push(sheet.name);
 
-    // Sheet metadata
+    // 시트 메타데이터. 병합 개수는 LLM 이 시나리오 트리형 데이터인지
+    // 가늠하는 힌트가 됨.
     const rowCount = sheet.rowCount;
     const colCount = sheet.columnCount;
     const mergeCount = sheet.model.merges?.length ?? 0;
@@ -27,39 +28,33 @@ export async function parseExcel(
       `\n=== 시트: ${sheet.name} (행: ${rowCount}, 열: ${colCount}, 병합셀: ${mergeCount}개) ===\n`
     );
 
-    // Build merge map: cell address → master cell value
-    const mergeMap = new Map<string, string>();
-    if (sheet.model.merges) {
-      for (const mergeRange of sheet.model.merges) {
-        // mergeRange format: "A1:C3"
-        const [startRef] = mergeRange.split(":");
-        const masterCell = sheet.getCell(startRef);
-        const masterValue = extractCellText(masterCell.value);
-        if (masterValue.trim()) {
-          mergeMap.set(startRef, masterValue);
-        }
-      }
-    }
-
-    // Parse rows
     sheet.eachRow({ includeEmpty: false }, (row) => {
       const cells: string[] = [];
       row.eachCell({ includeEmpty: true }, (cell) => {
+        // 병합 자식 셀은 빈칸 처리. ExcelJS 가 자식 셀에 master 값을
+        // 자동 반환하기 때문에 그대로 두면 한 값이 N번 반복되어 토큰을
+        // 낭비하고 LLM 입력에 노이즈가 됨. 부모 노드는 이미 master 행에
+        // 한 번 출력되므로 자식 행에선 비워서 시나리오 트리 모양을
+        // 보존한다.
+        if (cell.isMerged && cell.master !== cell) {
+          cells.push("");
+          return;
+        }
         let text = extractCellText(cell.value);
         text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
         cells.push(text);
       });
 
-      const nonEmptyCells = cells.filter((c) => c.trim());
-      if (nonEmptyCells.length === 0) return;
+      // trailing 빈칸 제거. 모두 빈칸이면 행 자체 스킵.
+      while (cells.length > 0 && !cells[cells.length - 1].trim()) cells.pop();
+      if (cells.length === 0) return;
 
-      // Single cell with internal line breaks → output as-is (preserves structure)
-      // Multiple cells → join with " | " as column separator
-      if (nonEmptyCells.length === 1) {
-        textParts.push(nonEmptyCells[0]);
-      } else {
-        textParts.push(nonEmptyCells.join(" | "));
-      }
+      // leading 빈칸 → [colN] 마커로 압축. 분기 깊이를 LLM 에게 전달.
+      let leading = 0;
+      while (leading < cells.length && !cells[leading].trim()) leading++;
+      const remainder = cells.slice(leading);
+      const prefix = leading > 0 ? `[col${leading + 1}] ` : "";
+      textParts.push(prefix + remainder.join(" | "));
     });
   });
 
