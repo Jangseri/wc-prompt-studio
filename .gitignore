@@ -48,3 +48,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code 세션 파일 (사용자별 로컬 상태)
+.claude/
+
+# 사내·고객사 민감 자료 — 같은 폴더의 다른 xlsx 는 이미 추적 중이지만
+# 아래 두 건은 의도적으로 미공유 처리.
+docs/orchestrator-codes.md
+docs/prompt-code.md
+prompt-source/고객사_병원_시연용.xlsx
+prompt-source/고객사_일반_F.xlsx

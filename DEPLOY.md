@@ -19,7 +19,7 @@
 ## 배포 구조
 
 ```
-/data/wc/
+/home/seri/
 └── prompt-studio/                ← 프로젝트 루트 (여기서 docker compose 실행)
     ├── docker-compose.yml
     ├── docker/Dockerfile
@@ -34,25 +34,24 @@
 
 ## 최초 배포 절차
 
-### 1. 서버 접속 + 디렉터리 준비
+### 1. 서버 접속
 
 ```bash
 ssh seri@192.168.220.223
-
-sudo mkdir -p /data/wc
-sudo chown -R seri:seri /data/wc
 ```
+
+`seri` 홈 디렉터리에 배치하므로 별도 mkdir/chown 불필요.
 
 ### 2. 프로젝트 파일 배치
 
 ```bash
-cd /data/wc
+cd /home/seri
 git clone <repository-url> prompt-studio
 cd prompt-studio
 
 # 또는 rsync (로컬 → 서버)
 # rsync -av --exclude node_modules --exclude .next --exclude logs \
-#   ./ seri@192.168.220.223:/data/wc/prompt-studio/
+#   ./ seri@192.168.220.223:/home/seri/prompt-studio/
 ```
 
 ### 3. 환경변수 파일 생성
@@ -103,8 +102,10 @@ curl http://localhost:7999/api/health
 
 정상 응답 (DB 연결 OK):
 ```json
-{ "ok": true, ... }
+{ "connected": true }
 ```
+
+실패 시 `{ "connected": false, "reason": "..." }` 형태로 사유 동봉.
 
 브라우저 접속:
 ```
@@ -116,7 +117,7 @@ http://192.168.220.223:7999
 ## 업데이트 배포
 
 ```bash
-cd /data/wc/prompt-studio
+cd /home/seri/prompt-studio
 
 # 1. 최신 코드 받기
 git pull
@@ -294,7 +295,7 @@ server {
 | 항목 | 경로 | 주기 |
 |------|------|------|
 | DB | MySQL `orchestrator.cstm_prmt_info` | 매일 |
-| 로그 | `/data/wc/prompt-studio/logs/` | 주 1회 (감사용) |
+| 로그 | `/home/seri/prompt-studio/logs/` | 주 1회 (감사용) |
 
 ### DB 백업 예시
 
@@ -308,7 +309,7 @@ mysqldump -h 192.168.220.222 -u root -p \
 ## 롤백
 
 ```bash
-cd /data/wc/prompt-studio
+cd /home/seri/prompt-studio
 
 # 1. 이전 커밋으로
 git log --oneline -10
