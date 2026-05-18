@@ -1,0 +1,35 @@
+# 운영 호스트(192.168.110.225) 전용 compose.
+# Layout A: 소스는 /home/prompt-studio/, 이 파일은 /home/prompt-studio/op/.
+# 빌드 context 가 ".." 인 이유: Dockerfile 의 COPY 가 저장소 루트 기준이므로.
+#
+# 운영 호스트는 root only 라 dev 처럼 호스트 uid 매핑이 불가/불필요.
+# 대신 이미지 안의 nextjs(uid 1001) 그대로 사용 — 호스트 logs/ 만
+# 1001:1001 로 chown 해두면 컨테이너가 쓸 수 있음.
+#
+# compose v1 (docker-compose 하이픈) 호환을 위해 version 명시.
+version: "3.8"
+
+services:
+  wc-prompt-studio:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: wc-prompt-studio
+    user: "1001:1001"
+    ports:
+      # dev 와 통일 (운영 호스트도 3000 free 하지만 가이드 일관성 유지).
+      - "7999:3000"
+    env_file:
+      - ../.env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+    volumes:
+      - ../logs:/app/logs
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+    restart: unless-stopped
