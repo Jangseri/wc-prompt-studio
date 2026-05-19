@@ -38,7 +38,7 @@
     └── logs/                          ← app-YYYY-MM-DD.log (자동 생성)
 ```
 
-- 호스트 포트 **7999** → 컨테이너 3000
+- 호스트 포트 **8999** → 컨테이너 3000
 - 컨테이너 user: **1001:1001** (이미지 내 nextjs)
 - 컨테이너 IP: **172.24.18.2** (네트워크 `172.24.18.0/24`, diva-rag-manager 의 `172.24.17.0/24` 회피)
 - 모든 명령은 `/home/prompt-studio/op/` 안에서 실행
@@ -120,7 +120,7 @@ docker-compose -f docker-compose.yml up -d
 docker-compose -f docker-compose.yml ps
 
 # 6. 헬스체크
-curl http://localhost:7999/api/health
+curl http://localhost:8999/api/health
 docker-compose -f docker-compose.yml logs -f --tail 100
 ```
 
@@ -129,7 +129,7 @@ docker-compose -f docker-compose.yml logs -f --tail 100
 { "connected": true }
 ```
 
-브라우저 접속: `http://192.168.110.225:7999`
+브라우저 접속: `http://192.168.110.225:8999`
 
 ---
 
@@ -161,7 +161,7 @@ docker-compose -f docker-compose.yml up -d
 
 # 검증
 docker-compose -f docker-compose.yml ps
-curl http://localhost:7999/api/health
+curl http://localhost:8999/api/health
 ```
 
 > 디스크 정리: 오래된 tar.gz / 이미지는 주기적으로 제거.
@@ -203,7 +203,7 @@ grep 'company_seq=12345' logs/app-*.log
 ### 헬스체크 모니터링
 
 ```bash
-watch -n 10 'curl -s http://localhost:7999/api/health'
+watch -n 10 'curl -s http://localhost:8999/api/health'
 ```
 
 ---
@@ -220,7 +220,7 @@ docker-compose -f docker-compose.yml logs wc-prompt-studio
 - `.env` 의 `IMAGE_TAG` 가 `docker images` 에 없는 태그 → `docker load` 다시
 - `.env` 누락/오타 → `cp` 후 채우기
 - DB 접속 실패 → `DB_HOST`/`DB_PASSWORD` 확인, `192.168.110.235:3306` 방화벽 확인
-- 포트 7999 점유 → `docker-compose.yml` 의 `ports` 변경
+- 포트 8999 점유 → `docker-compose.yml` 의 `ports` 변경
 - 서브넷 `172.24.18.0/24` 충돌 → 다른 컨테이너가 이미 사용 중인지 `docker network ls` 후 inspect
 - 권한 문제 → `chown -R 1001:1001 logs/`
 - `Version in "./docker-compose.yml" is unsupported` → compose 파일 `version` 이 3.7 인지 확인
@@ -230,7 +230,7 @@ docker-compose -f docker-compose.yml logs wc-prompt-studio
 평소 정상 동작 중엔 `logs/` 가 비어있는 게 정상 (logger 가 `error` / `warn` 만 씀). 의심되면 강제 트리거:
 
 ```bash
-curl -i -X POST http://localhost:7999/api/upload     # 빈 multipart → logger.error
+curl -i -X POST http://localhost:8999/api/upload     # 빈 multipart → logger.error
 ls -la logs/
 tail logs/app-$(date +%Y-%m-%d).log
 ```
@@ -284,7 +284,7 @@ docker image prune
 - [ ] `.env` 가 git 에 커밋되지 않았는지 (`.gitignore` 에 `.env*` 포함됨)
 - [ ] `chmod 600 .env` 로 권한 제한
 - [ ] `OPENAI_API_KEY`, `GEMINI_API_KEY`, `DB_PASSWORD` 는 운영용으로 교체
-- [ ] 서버 방화벽에서 7999 포트는 필요한 대역만 허용 (사내 전용)
+- [ ] 서버 방화벽에서 8999 포트는 필요한 대역만 허용 (사내 전용)
 - [ ] `logs/` 에 민감정보 (프롬프트 본문, 회사 식별자 등) 기록되는지 주기 점검
 - [ ] HTTPS 필요 시 nginx 리버스 프록시 추가
 - [ ] root 단독 운영 — 위험 명령(`down -v`, `rm -rf`, `prune -a` 류) 실행 전 한 번 더 확인
@@ -293,7 +293,7 @@ docker image prune
 
 ## nginx 리버스 프록시 (선택)
 
-HTTPS 또는 도메인이 필요하면 호스트의 nginx 에서 7999 로 프록시.
+HTTPS 또는 도메인이 필요하면 호스트의 nginx 에서 8999 로 프록시.
 
 ```nginx
 server {
@@ -307,7 +307,7 @@ server {
     proxy_buffering off;
 
     location / {
-        proxy_pass http://127.0.0.1:7999;
+        proxy_pass http://127.0.0.1:8999;
         proxy_http_version 1.1;
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
@@ -359,7 +359,7 @@ sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=<이전-sha>/" .env
 docker-compose -f docker-compose.yml up -d
 
 # 4. 검증
-curl http://localhost:7999/api/health
+curl http://localhost:8999/api/health
 ```
 
 운영서버에 이전 이미지가 없다면 빌드 호스트에서 해당 git commit 으로 체크아웃 → 위 "최초 배포 A" 단계 반복.

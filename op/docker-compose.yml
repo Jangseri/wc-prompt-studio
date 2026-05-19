@@ -23,7 +23,7 @@ services:
     container_name: wc-prompt-studio
     user: "1001:1001"
     ports:
-      - "7999:3000"
+      - "8999:3000"
     env_file:
       - .env
     environment:
