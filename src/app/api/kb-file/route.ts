@@ -4,8 +4,56 @@ import type { ApiResponse } from '@/types/editor'
 
 export const dynamic = 'force-dynamic'
 
-const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'http://host.docker.internal:9002'
+// 콤마-구분 multi-URL 지원. 파일 본문은 둘 중 한 서버에만 있으므로
+// 순차 시도 — 첫 성공이면 즉시 반환, 어디에도 없으면 마지막 에러로 502.
+const ORCHESTRATOR_URLS = (
+  process.env.ORCHESTRATOR_URL || 'http://host.docker.internal:9002'
+)
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
 const ORCHESTRATOR_TIMEOUT = 15000
+
+type FetchResult =
+  | { success: true; content: string }
+  | { success: false; error: string }
+
+async function fetchOne(
+  base: string,
+  companySeq: string,
+  fileName: string,
+  rid: string,
+  signal: AbortSignal
+): Promise<FetchResult> {
+  const url = `${base}/v1/orchestrator/files/${encodeURIComponent(companySeq)}/content?fileName=${encodeURIComponent(fileName)}`
+  try {
+    const res = await withLog(
+      '[orchestrator] kb-file',
+      { rid, companySeq, fileName, url },
+      async () =>
+        fetch(url, { headers: { accept: '*/*' }, signal }),
+      (r) => ({ status: r.status })
+    )
+
+    if (!res.ok) {
+      return { success: false, error: `오케스트레이터 응답 오류 (${res.status})` }
+    }
+
+    const data = await res.json()
+
+    if (data.code === 2000) {
+      return { success: true, content: data.body as string }
+    }
+
+    return { success: false, error: data.errMessage || '오케스트레이터 오류' }
+  } catch (err) {
+    const message =
+      err instanceof DOMException && err.name === 'AbortError'
+        ? '오케스트레이터 응답 시간 초과'
+        : '오케스트레이터에 연결할 수 없습니다'
+    return { success: false, error: message }
+  }
+}
 
 export async function POST(request: Request) {
   return logRoute('[kb-file] POST', {}, async (rid) => {
@@ -45,47 +93,28 @@ export async function POST(request: Request) {
       )
     }
 
-    try {
-      const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), ORCHESTRATOR_TIMEOUT)
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), ORCHESTRATOR_TIMEOUT)
 
-      const url = `${ORCHESTRATOR_URL}/v1/orchestrator/files/${encodeURIComponent(companySeq)}/content?fileName=${encodeURIComponent(fileName)}`
-      const res = await withLog(
-        '[orchestrator] kb-file',
-        { rid, companySeq, fileName, url },
-        async () => fetch(url, { headers: { accept: '*/*' }, signal: controller.signal }),
-        (r) => ({ status: r.status })
-      )
-      clearTimeout(timer)
-
-      if (!res.ok) {
-        return NextResponse.json(
-          { success: false, error: `오케스트레이터 응답 오류 (${res.status})` } satisfies ApiResponse<null>,
-          { status: 502 }
-        )
-      }
-
-      const data = await res.json()
-
-      if (data.code === 2000) {
+    // 순차 시도: 첫 success 면 즉시 반환. 마지막 실패 사유는 보관해서
+    // 어디에도 없을 때 응답에 동봉.
+    let lastError = ''
+    for (const base of ORCHESTRATOR_URLS) {
+      const result = await fetchOne(base, companySeq, fileName, rid, controller.signal)
+      if (result.success) {
+        clearTimeout(timer)
         return NextResponse.json({
           success: true,
-          data: data.body as string,
+          data: result.content,
         } satisfies ApiResponse<string>)
       }
-
-      return NextResponse.json(
-        { success: false, error: data.errMessage || '오케스트레이터 오류' } satisfies ApiResponse<null>,
-        { status: 502 }
-      )
-    } catch (err) {
-      const message = err instanceof DOMException && err.name === 'AbortError'
-        ? '오케스트레이터 응답 시간 초과'
-        : '오케스트레이터에 연결할 수 없습니다'
-      return NextResponse.json(
-        { success: false, error: message } satisfies ApiResponse<null>,
-        { status: 502 }
-      )
+      lastError = result.error
     }
+    clearTimeout(timer)
+
+    return NextResponse.json(
+      { success: false, error: lastError || '오케스트레이터에 연결할 수 없습니다' } satisfies ApiResponse<null>,
+      { status: 502 }
+    )
   })
 }
