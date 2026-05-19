@@ -4,20 +4,12 @@ import type { ApiResponse } from '@/types/editor'
 
 export const dynamic = 'force-dynamic'
 
-// companyInfo 백엔드는 KB orchestrator 와 다른 호스트/포트.
-// dev/운영 path·method 가 다르므로 env 세 개로 분기:
-//   COMPANY_INFO_URL    — base URL (예: http://host:port)
-//   COMPANY_INFO_PATH   — 엔드포인트 path (default: /company-info/search)
-//   COMPANY_INFO_METHOD — GET | POST (default: GET)
-// GET 은 ?companySeq=X 쿼리, POST 는 JSON body {"companySeq":"X"}.
+// companyInfo lives on a different backend from the KB orchestrator
+// (different host/port in production), so we read a dedicated env var.
+// Falls back to the address the user provided during integration if no
+// override is set.
 const COMPANY_INFO_URL =
   process.env.COMPANY_INFO_URL || 'http://192.168.220.222:3030'
-const COMPANY_INFO_PATH =
-  process.env.COMPANY_INFO_PATH || '/company-info/search'
-const COMPANY_INFO_METHOD =
-  (process.env.COMPANY_INFO_METHOD || 'GET').toUpperCase() === 'POST'
-    ? 'POST'
-    : 'GET'
 const COMPANY_INFO_TIMEOUT = 15000
 
 interface CompanyInfoBody {
@@ -48,23 +40,16 @@ export async function POST(request: Request) {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), COMPANY_INFO_TIMEOUT)
 
-      // dev:  GET  ${URL}${PATH}?companySeq=X         → { companyName, ceoName, companyEmail }
-      // 운영: POST ${URL}${PATH}  body={"companySeq":"X"} → { companyName }
-      const isPost = COMPANY_INFO_METHOD === 'POST'
-      const baseUrl = `${COMPANY_INFO_URL}${COMPANY_INFO_PATH}`
-      const upstreamUrl = isPost
-        ? baseUrl
-        : `${baseUrl}?companySeq=${encodeURIComponent(companySeq)}`
+      // Upstream is GET with query string: /company-info/search?companySeq=X
+      // Returns a flat object: { companyName, ceoName, companyEmail }
+      const upstreamUrl = `${COMPANY_INFO_URL}/company-info/search?companySeq=${encodeURIComponent(companySeq)}`
       const res = await withLog(
         '[company-info] upstream',
-        { rid, companySeq, url: upstreamUrl, method: COMPANY_INFO_METHOD },
+        { rid, companySeq, url: upstreamUrl },
         async () =>
           fetch(upstreamUrl, {
-            method: COMPANY_INFO_METHOD,
-            headers: isPost
-              ? { accept: '*/*', 'content-type': 'application/json' }
-              : { accept: '*/*' },
-            body: isPost ? JSON.stringify({ companySeq }) : undefined,
+            method: 'GET',
+            headers: { accept: '*/*' },
             signal: controller.signal,
           }),
         (r) => ({ status: r.status })
