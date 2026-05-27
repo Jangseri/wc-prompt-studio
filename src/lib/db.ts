@@ -47,6 +47,12 @@ export function sanitizeDbError(err: unknown): string {
     if (err.message.includes('PROTOCOL_CONNECTION_LOST')) {
       return '데이터베이스 연결이 끊어졌습니다'
     }
+    // MySQL max_connections 초과 — 우리 풀(connectionLimit:5) 한도가 아니라
+    // 공유 DB 서버 한도가 다른 서비스들로 다 찼다는 신호. 사용자에겐 일시적
+    // 혼잡으로 안내해서 raw stack 이 그대로 노출되지 않도록.
+    if (err.message.includes('Too many connections') || err.message.includes('ER_CON_COUNT_ERROR')) {
+      return 'DB 연결 한도 초과 — 잠시 후 다시 시도해주세요'
+    }
     if (err.message.includes('ER_DUP_ENTRY')) {
       return '중복된 데이터가 존재합니다'
     }

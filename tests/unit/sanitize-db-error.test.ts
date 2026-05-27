@@ -32,6 +32,18 @@ describe('sanitizeDbError', () => {
     expect(msg).toBe('필수 필드가 누락되었습니다')
   })
 
+  // 공유 DB 서버 max_connections 한도 초과. mysql2 는 두 가지 형태로 던질
+  // 수 있어 두 변형 모두 같은 사용자 메시지로 매핑되는지 검증.
+  it('maps "Too many connections" to connection-limit message', () => {
+    const msg = sanitizeDbError(new Error('Too many connections'))
+    expect(msg).toBe('DB 연결 한도 초과 — 잠시 후 다시 시도해주세요')
+  })
+
+  it('maps ER_CON_COUNT_ERROR to connection-limit message', () => {
+    const msg = sanitizeDbError(new Error('ER_CON_COUNT_ERROR: too many connections'))
+    expect(msg).toBe('DB 연결 한도 초과 — 잠시 후 다시 시도해주세요')
+  })
+
   it('falls back to generic message for unknown errors', () => {
     const msg = sanitizeDbError(new Error('some wild thing went wrong'))
     expect(msg).toBe('서버 내부 오류가 발생했습니다')

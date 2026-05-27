@@ -29,6 +29,9 @@ export async function GET() {
     else if (msg.includes('ACCESS_DENIED') || msg.includes('ER_ACCESS_DENIED')) reason = 'DB 인증 실패'
     else if (msg.includes('PROTOCOL_CONNECTION_LOST')) reason = '연결 끊김'
     else if (msg.includes('ER_BAD_DB_ERROR')) reason = '데이터베이스 없음'
+    // 공유 DB 서버 max_connections 한도 초과. health 는 sanitizeDbError 를
+    // 거치지 않고 자체 매핑하므로 같은 케이스를 여기도 둔다.
+    else if (msg.includes('Too many connections') || msg.includes('ER_CON_COUNT_ERROR')) reason = 'DB 연결 한도 초과'
     else if (msg.includes('password')) reason = 'DB 비밀번호 오류'
     else reason = msg.length > 100 ? msg.substring(0, 100) : msg
     return NextResponse.json({ connected: false, reason })
