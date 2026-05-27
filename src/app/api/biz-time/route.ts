@@ -4,35 +4,30 @@ import type { ApiResponse } from '@/types/editor'
 
 export const dynamic = 'force-dynamic'
 
-// dev-backdoor 의 wcadmin biz-time API base. company-info / orchestrator 와
-// 마찬가지로 환경마다 호스트가 달라질 수 있으므로 env 로 분리.
-// path 의 `/v1/dev/...` 가 환경별로 바뀔 여지가 있어 BIZTIME_PATH 도 분리
-// 해두면 운영에서 `/v1/prod/...` 같은 변형에 환경변수만 바꿔서 대응 가능.
-const BIZTIME_URL =
-  process.env.BIZTIME_URL ||
-  'https://dev-backdoor.ploonet.com/wcadmin1/wc-be-adm-api'
-const BIZTIME_PATH = process.env.BIZTIME_PATH || '/v1/dev/biz-time/dayon/curr'
+// config-manager 의 businesstime API. 처음엔 dev-backdoor.ploonet.com 의
+// wcadmin1 경로로 호출했으나 그 도메인은 nginx 단에서 IP 화이트리스트로
+// 막혀 server-to-server 호출이 403 으로 거절됨 (사무실 워크스테이션만
+// 허용). 사내 내부 IP 로 직접 호출하면 nginx 우회 가능.
+//
+//   path: /aice/configManager/v1/businesstime/ais/{ai_staff_seq}/{voice|chat}/curr
+//   query: ?callerTp=customer&customerTp=partner (고정값)
+//
+// 응답 형태:
+//   {
+//     body: { status: "success", data: { msgIntro: "...", ... } },
+//     statusCodeValue: 200,
+//     statusCode: "OK"
+//   }
+//
+// dev: BIZTIME_URL=http://10.0.131.55:8151
+// 운영 IP 가 다르면 운영 .env 에서 BIZTIME_URL 만 override.
+const BIZTIME_URL = process.env.BIZTIME_URL || 'http://10.0.131.55:8151'
 const BIZTIME_TIMEOUT = 15000
 
 interface BizTimeResult {
   greeting: string | null
 }
 
-/**
- * upstream 응답 형태:
- * {
- *   resultStatus: 200,
- *   mapData: {
- *     msgIntro: "안녕하세요 ...",   // ← 우리가 쓰는 인사말
- *     timeType: "on" | "off",
- *     busy: { busyMsg, busyAct },
- *     ...
- *   }
- * }
- *
- * 다른 필드(busy, timeType 등)도 추후 활용 가능성이 있지만 현재 요구는
- * "기존 회사 테스트 채팅의 인사말" 뿐이라 msgIntro 만 추출해서 단순화한다.
- */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const aiStaffSeq = searchParams.get('ai_staff_seq')
@@ -48,8 +43,6 @@ export async function GET(request: Request) {
           { status: 400 }
         )
       }
-      // chnn_tp 화이트리스트. upstream 이 받는 값이 voice/chat 두 가지로
-      // 알려져 있으므로 그 외는 거부해서 잘못된 호출을 조기 차단.
       if (chnnTp !== 'voice' && chnnTp !== 'chat') {
         return NextResponse.json(
           { success: false, error: "chnn_tp must be 'voice' or 'chat'" } satisfies ApiResponse<null>,
@@ -61,15 +54,12 @@ export async function GET(request: Request) {
       const timer = setTimeout(() => controller.abort(), BIZTIME_TIMEOUT)
 
       try {
-        // upstream 쿼리: searchKey 는 빈 문자열 그대로, type=ais 는 고정값
-        // (사용자 제공 URL 기준). seq 만 ai_staff_seq 로 치환.
-        const qs = new URLSearchParams({
-          searchKey: '',
-          type: 'ais',
-          chnnTp,
-          seq: aiStaffSeq,
-        })
-        const upstreamUrl = `${BIZTIME_URL}${BIZTIME_PATH}?${qs.toString()}`
+        // path 안에 ai_staff_seq 와 chnn_tp 를 끼워넣는 RESTful 패턴.
+        // ai_staff_seq 는 숫자 문자열이지만 안전을 위해 encode.
+        const seqPath = encodeURIComponent(aiStaffSeq)
+        const upstreamUrl =
+          `${BIZTIME_URL}/aice/configManager/v1/businesstime/ais/${seqPath}/${chnnTp}/curr` +
+          `?callerTp=customer&customerTp=partner`
 
         const res = await withLog(
           '[biz-time] upstream',
@@ -77,7 +67,7 @@ export async function GET(request: Request) {
           async () =>
             fetch(upstreamUrl, {
               method: 'GET',
-              headers: { accept: '*/*' },
+              headers: { accept: 'application/json' },
               signal: controller.signal,
             }),
           (r) => ({ status: r.status })
@@ -92,17 +82,20 @@ export async function GET(request: Request) {
 
         const data = await res.json()
 
-        // resultStatus 가 200 이 아니면 정상 응답이 아닌 것으로 보고
-        // greeting=null 로 전달. 클라이언트는 이걸 "인사말 없음" 으로
-        // 처리하면 됨 (502 로 안 올리는 이유: 채팅 자체가 막히면 곤란).
-        if (data?.resultStatus !== 200) {
+        // upstream 의 정상 응답 신호. statusCodeValue:200 / statusCode:"OK"
+        // 둘 다 따로 와서 어느 쪽으로 봐도 되지만, 문자열 "OK" 가 더
+        // 명시적이라 그 쪽 우선. 둘 다 빠진 형태가 오면 인사말 없음으로.
+        const ok = data?.statusCode === 'OK' || data?.statusCodeValue === 200
+        if (!ok) {
           return NextResponse.json({
             success: true,
             data: { greeting: null } satisfies BizTimeResult,
           })
         }
 
-        const msgIntro = data?.mapData?.msgIntro
+        // msgIntro 는 body.data 안. 이전 API(mapData.msgIntro) 보다 한
+        // 단계 더 깊어진 점만 다름.
+        const msgIntro = data?.body?.data?.msgIntro
         const greeting =
           typeof msgIntro === 'string' && msgIntro.trim().length > 0
             ? msgIntro
