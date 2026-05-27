@@ -24,6 +24,7 @@ import { KBViewer } from "@/components/editor/KBViewer";
 import { fetchKBList } from "@/lib/kb-api";
 import { TARGET_LLM_META, type TargetLLM } from "@/types/structuring";
 import type { KBItem } from "@/types/editor";
+import { ExistingCompanyChatTab } from "./existing-company-chat-tab";
 
 const LLM_TARGETS: TargetLLM[] = ["gpt", "claude", "gemini"];
 
@@ -56,22 +57,16 @@ export function PreviewChatPanel() {
     }
   }, [visibleTabs, active]);
 
-  // In manage mode the user is editing existing DB rows directly — the
-  // Preview/Chat tabs reflect the regions editor state (empty here) and
-  // would just be confusing, so we show only KB (company-contextual
-  // reference files) with a static section header in place of the tab bar.
+  // manage 모드 전용 탭. Preview/일반 Chat 탭은 region 편집 상태에 묶여
+  // 있어서 기존 회사 화면에서 보여주면 혼란을 주므로 제외. 대신 저장된
+  // PD2000/PD0000 으로 바로 테스트할 수 있는 ExistingCompanyChatTab 과
+  // 기존 KBTab 을 좌우 탭으로 노출.
   if (mode === "manage") {
-    return (
-      <div className="flex h-full flex-col gap-3 min-h-0">
-        <div className="flex items-center gap-1.5 rounded-md border border-border/50 bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
-          <Database className="h-3.5 w-3.5" />
-          Knowledge Base
-        </div>
-        <div className="flex-1 min-h-0">
-          <KBTab />
-        </div>
-      </div>
-    );
+    const manageTabs = [
+      { id: "manage-chat" as const, label: "Chat", icon: MessageSquare },
+      { id: "manage-kb" as const, label: "KB", icon: Database },
+    ];
+    return <ManageTabs tabs={manageTabs} />;
   }
 
   return (
@@ -103,6 +98,49 @@ export function PreviewChatPanel() {
         {active === "preview" && <PreviewTab />}
         {active === "chat" && <ChatTab />}
         {active === "kb" && <KBTab />}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * manage 모드 우측 패널의 탭 컨테이너. workflow 모드의 탭 바 스타일을
+ * 그대로 따르되, 탭 종류만 [Chat | KB] 로 한정. 기본은 Chat 탭 (사용자가
+ * 새로 추가한 기능이므로 진입 시 바로 보이게).
+ */
+function ManageTabs({
+  tabs,
+}: {
+  tabs: { id: "manage-chat" | "manage-kb"; label: string; icon: typeof FileText }[];
+}) {
+  const [active, setActive] = useState<"manage-chat" | "manage-kb">("manage-chat");
+  return (
+    <div className="flex h-full flex-col gap-3 min-h-0">
+      <div className="flex items-center gap-1 rounded-md border border-border/50 p-1">
+        {tabs.map((t) => {
+          const Icon = t.icon;
+          const isActive = active === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setActive(t.id)}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1.5 text-xs transition-smooth",
+                isActive
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex-1 min-h-0">
+        {active === "manage-chat" && <ExistingCompanyChatTab />}
+        {active === "manage-kb" && <KBTab />}
       </div>
     </div>
   );
